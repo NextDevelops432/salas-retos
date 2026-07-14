@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import { Button, Card, EmptyState } from '../../../components/UI';
 import { colors, spacing, radius } from '../../../constants/theme';
 import type { TaskCompletion } from '../../../lib/database.types';
@@ -30,6 +31,7 @@ interface ProposalItem {
 export default function ReviewScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
+  const { notify, celebrate } = useToast();
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [redemptions, setRedemptions] = useState<RedemptionReviewItem[]>([]);
   const [taskProposals, setTaskProposals] = useState<ProposalItem[]>([]);
@@ -110,54 +112,74 @@ export default function ReviewScreen() {
     }, [load])
   );
 
-  const review = async (completionId: string, approve: boolean) => {
-    setBusyId(completionId);
+  const review = async (item: ReviewItem, approve: boolean) => {
+    setBusyId(item.id);
     const { error } = await supabase.rpc('review_completion', {
-      p_completion_id: completionId,
+      p_completion_id: item.id,
       p_approve: approve,
       p_review_note: null,
     });
     setBusyId(null);
     if (error) {
-      Alert.alert('No se pudo procesar', error.message);
+      notify({ tone: 'error', title: 'No se pudo procesar', message: error.message });
       return;
+    }
+    if (approve) {
+      celebrate({ emoji: '✅', title: '¡Evidencia aprobada!', message: `${item.username} ganó ${item.taskPoints} puntos.` });
+    } else {
+      notify({ tone: 'info', title: 'Evidencia rechazada' });
     }
     load();
   };
 
-  const reviewRedemption = async (redemptionId: string, approve: boolean) => {
-    setBusyId(redemptionId);
+  const reviewRedemption = async (item: RedemptionReviewItem, approve: boolean) => {
+    setBusyId(item.id);
     const { error } = await supabase.rpc('review_redemption', {
-      p_redemption_id: redemptionId,
+      p_redemption_id: item.id,
       p_approve: approve,
       p_review_note: null,
     });
     setBusyId(null);
     if (error) {
-      Alert.alert('No se pudo procesar', error.message);
+      notify({ tone: 'error', title: 'No se pudo procesar', message: error.message });
       return;
+    }
+    if (approve) {
+      celebrate({ emoji: '🎁', title: '¡Recompensa entregada!', message: `Buen trabajo aprobando "${item.rewardTitle}".` });
+    } else {
+      notify({ tone: 'info', title: 'Canje rechazado' });
     }
     load();
   };
 
-  const reviewTaskProposal = async (taskId: string, approve: boolean) => {
-    setBusyId(taskId);
-    const { error } = await supabase.rpc('review_task_approval', { p_task_id: taskId, p_approve: approve });
+  const reviewTaskProposal = async (item: ProposalItem, approve: boolean) => {
+    setBusyId(item.id);
+    const { error } = await supabase.rpc('review_task_approval', { p_task_id: item.id, p_approve: approve });
     setBusyId(null);
     if (error) {
-      Alert.alert('No se pudo procesar', error.message);
+      notify({ tone: 'error', title: 'No se pudo procesar', message: error.message });
       return;
+    }
+    if (approve) {
+      celebrate({ emoji: '✅', title: '¡Reto aprobado!', message: `"${item.title}" ya está activo en la sala.` });
+    } else {
+      notify({ tone: 'info', title: 'Reto rechazado' });
     }
     load();
   };
 
-  const reviewRewardProposal = async (rewardId: string, approve: boolean) => {
-    setBusyId(rewardId);
-    const { error } = await supabase.rpc('review_reward_approval', { p_reward_id: rewardId, p_approve: approve });
+  const reviewRewardProposal = async (item: ProposalItem, approve: boolean) => {
+    setBusyId(item.id);
+    const { error } = await supabase.rpc('review_reward_approval', { p_reward_id: item.id, p_approve: approve });
     setBusyId(null);
     if (error) {
-      Alert.alert('No se pudo procesar', error.message);
+      notify({ tone: 'error', title: 'No se pudo procesar', message: error.message });
       return;
+    }
+    if (approve) {
+      celebrate({ emoji: '✅', title: '¡Recompensa aprobada!', message: `"${item.title}" ya se puede canjear.` });
+    } else {
+      notify({ tone: 'info', title: 'Recompensa rechazada' });
     }
     load();
   };
@@ -193,14 +215,14 @@ export default function ReviewScreen() {
                 <Button
                   title="Rechazar"
                   variant="danger"
-                  onPress={() => reviewTaskProposal(p.id, false)}
+                  onPress={() => reviewTaskProposal(p, false)}
                   loading={busyId === p.id}
                   style={{ flex: 1 }}
                 />
                 <View style={{ width: spacing.sm }} />
                 <Button
                   title="Aprobar"
-                  onPress={() => reviewTaskProposal(p.id, true)}
+                  onPress={() => reviewTaskProposal(p, true)}
                   loading={busyId === p.id}
                   style={{ flex: 1 }}
                 />
@@ -226,14 +248,14 @@ export default function ReviewScreen() {
                 <Button
                   title="Rechazar"
                   variant="danger"
-                  onPress={() => reviewRewardProposal(p.id, false)}
+                  onPress={() => reviewRewardProposal(p, false)}
                   loading={busyId === p.id}
                   style={{ flex: 1 }}
                 />
                 <View style={{ width: spacing.sm }} />
                 <Button
                   title="Aprobar"
-                  onPress={() => reviewRewardProposal(p.id, true)}
+                  onPress={() => reviewRewardProposal(p, true)}
                   loading={busyId === p.id}
                   style={{ flex: 1 }}
                 />
@@ -259,14 +281,14 @@ export default function ReviewScreen() {
                 <Button
                   title="Rechazar"
                   variant="danger"
-                  onPress={() => reviewRedemption(r.id, false)}
+                  onPress={() => reviewRedemption(r, false)}
                   loading={busyId === r.id}
                   style={{ flex: 1 }}
                 />
                 <View style={{ width: spacing.sm }} />
                 <Button
                   title="Aprobar"
-                  onPress={() => reviewRedemption(r.id, true)}
+                  onPress={() => reviewRedemption(r, true)}
                   loading={busyId === r.id}
                   style={{ flex: 1 }}
                 />
@@ -295,14 +317,14 @@ export default function ReviewScreen() {
               <Button
                 title="Rechazar"
                 variant="danger"
-                onPress={() => review(item.id, false)}
+                onPress={() => review(item, false)}
                 loading={busyId === item.id}
                 style={{ flex: 1 }}
               />
               <View style={{ width: spacing.sm }} />
               <Button
                 title="Aprobar"
-                onPress={() => review(item.id, true)}
+                onPress={() => review(item, true)}
                 loading={busyId === item.id}
                 style={{ flex: 1 }}
               />

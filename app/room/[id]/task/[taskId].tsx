@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
+import { useToast } from '../../../../context/ToastContext';
 import { uploadTaskPhoto } from '../../../../lib/uploadPhoto';
 import { Badge, Button, Card, Input } from '../../../../components/UI';
 import { colors, radius, spacing } from '../../../../constants/theme';
@@ -11,9 +12,9 @@ import { formatDueIn } from '../../../../lib/format';
 import type { Task, TaskCompletion } from '../../../../lib/database.types';
 
 export default function TaskDetailScreen() {
-  const { id, taskId } = useLocalSearchParams<{ id: string; taskId: string }>();
+  const { taskId } = useLocalSearchParams<{ id: string; taskId: string }>();
   const { session } = useAuth();
-  const router = useRouter();
+  const { notify, celebrate } = useToast();
 
   const [task, setTask] = useState<Task | null>(null);
   const [myCompletions, setMyCompletions] = useState<TaskCompletion[]>([]);
@@ -51,7 +52,7 @@ export default function TaskDetailScreen() {
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permiso necesario', 'Necesitamos permiso para acceder a tus fotos.');
+      notify({ tone: 'error', title: 'Permiso necesario', message: 'Necesitamos permiso para acceder a tus fotos.' });
       return;
     }
     const result = fromCamera
@@ -80,11 +81,10 @@ export default function TaskDetailScreen() {
       setPhotoUri(null);
       setNote('');
       await load();
-      Alert.alert(
-        task.requires_approval ? 'Enviado' : '¡Listo!',
+      celebrate(
         task.requires_approval
-          ? 'Tu evidencia fue enviada y está esperando aprobación.'
-          : `Ganaste ${task.points} puntos.`
+          ? { emoji: '📨', title: '¡Enviado!', message: 'Tu evidencia está esperando aprobación.' }
+          : { emoji: '🎉', title: '¡Listo!', message: `Ganaste ${task.points} puntos. Buen trabajo.` }
       );
     } catch (e: any) {
       setError(e.message ?? 'Ocurrió un error al enviar la evidencia.');
@@ -159,7 +159,7 @@ export default function TaskDetailScreen() {
       ) : null}
 
       {latest?.status === 'rejected' ? (
-        <Card style={{ borderColor: colors.danger }}>
+        <Card style={{ borderWidth: 2, borderColor: colors.danger }}>
           <Text style={styles.sectionTitle}>❌ Evidencia rechazada</Text>
           {latest.review_note ? <Text style={styles.note}>"{latest.review_note}"</Text> : null}
           <Text style={styles.description}>Puedes intentarlo de nuevo mientras el reto siga vigente.</Text>

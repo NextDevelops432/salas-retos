@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
+import { useToast } from '../../../context/ToastContext';
 import { Button, Card, Input } from '../../../components/UI';
 import { colors, radius, spacing } from '../../../constants/theme';
 import { durationToHours } from '../../../lib/format';
@@ -9,6 +10,7 @@ import { durationToHours } from '../../../lib/format';
 export default function CreateTaskScreen() {
   const { id, taskId } = useLocalSearchParams<{ id: string; taskId?: string }>();
   const router = useRouter();
+  const { celebrate } = useToast();
   const isEditing = !!taskId;
 
   const [title, setTitle] = useState('');
@@ -88,7 +90,12 @@ export default function CreateTaskScreen() {
       setError(error.message);
       return;
     }
-    router.back();
+    celebrate({
+      emoji: '📝',
+      title: isEditing ? '¡Cambios guardados!' : '¡Reto propuesto!',
+      message: 'Queda pendiente hasta que otro integrante de la sala lo apruebe.',
+      onDismiss: () => router.back(),
+    });
   };
 
   if (loadingTask) {
@@ -184,7 +191,7 @@ const styles = StyleSheet.create({
   unitBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: radius.sm },
   unitBtnActive: { backgroundColor: colors.primary },
   unitText: { color: colors.textMuted, fontWeight: '600', fontSize: 13 },
-  unitTextActive: { color: colors.text },
+  unitTextActive: { color: colors.textOnPrimary },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchLabel: { color: colors.text, fontSize: 13, flex: 1, marginRight: spacing.sm },
   error: { color: colors.danger, marginTop: spacing.sm },

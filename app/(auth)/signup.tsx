@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { Button, Input } from '../../components/UI';
+import { Button, Card, Input } from '../../components/UI';
 import { colors, spacing } from '../../constants/theme';
 
 export default function SignupScreen() {
@@ -41,33 +41,33 @@ export default function SignupScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Crear cuenta</Text>
-        <Text style={styles.subtitle}>Únete o crea tu primera sala de retos.</Text>
+        <Text style={styles.emoji}>🎉</Text>
+        <Text style={styles.title}>Únete a RetaMe</Text>
+        <Text style={styles.subtitle}>Crea tu cuenta y arma tu primera sala de retos.</Text>
 
         <View style={{ height: spacing.lg }} />
 
-        <Input placeholder="Nombre de usuario" autoCapitalize="none" value={username} onChangeText={setUsername} />
-        <View style={{ height: spacing.sm }} />
-        <Input
-          placeholder="Correo electrónico"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <View style={{ height: spacing.sm }} />
-        <Input placeholder="Contraseña (mín. 6 caracteres)" secureTextEntry value={password} onChangeText={setPassword} />
+        <Card>
+          <Input placeholder="Nombre de usuario" autoCapitalize="none" value={username} onChangeText={setUsername} />
+          <View style={{ height: spacing.sm }} />
+          <Input
+            placeholder="Correo electrónico"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <View style={{ height: spacing.sm }} />
+          <Input placeholder="Contraseña (mín. 6 caracteres)" secureTextEntry value={password} onChangeText={setPassword} />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {info ? <Text style={styles.info}>{info}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {info ? <Text style={styles.info}>{info}</Text> : null}
 
-        <View style={{ height: spacing.md }} />
-        <Button title="Registrarme" onPress={handleSignup} loading={loading} />
+          <View style={{ height: spacing.md }} />
+          <Button title="Registrarme" onPress={handleSignup} loading={loading} />
+        </Card>
 
         <View style={{ height: spacing.lg }} />
         <Link href="/(auth)/login" style={styles.link}>
@@ -83,12 +83,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: spacing.lg,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
+  emoji: { fontSize: 40, textAlign: 'center' },
   title: {
     color: colors.text,
     fontSize: 26,
     fontWeight: '800',
     textAlign: 'center',
+    marginTop: spacing.sm,
   },
   subtitle: {
     color: colors.textMuted,
@@ -109,6 +114,6 @@ const styles = StyleSheet.create({
   link: {
     color: colors.primary,
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

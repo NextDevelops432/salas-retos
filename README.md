@@ -1,4 +1,4 @@
-# Salas de Retos
+# RetaMe
 
 App de salas colaborativas: crea una sala, invita a otros con un código, crea
 retos con vencimiento (horas o días) que otorgan puntos al completarse (con

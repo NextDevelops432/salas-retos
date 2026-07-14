@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
-import { Button, Input } from '../../components/UI';
-import { colors, spacing } from '../../constants/theme';
+import { Button, Card, Input } from '../../components/UI';
+import { colors, radius, spacing } from '../../constants/theme';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -24,31 +25,32 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.emoji}>🏆</Text>
-        <Text style={styles.title}>Salas de Retos</Text>
-        <Text style={styles.subtitle}>Crea salas, cumple retos y canjea recompensas.</Text>
+        <LinearGradient colors={[colors.bgGradientStart, colors.bgGradientEnd]} style={styles.hero}>
+          <Text style={styles.emoji}>🏆</Text>
+          <Text style={styles.title}>RetaMe</Text>
+          <Text style={styles.subtitle}>Crea salas, cumple retos y canjea recompensas.</Text>
+        </LinearGradient>
 
         <View style={{ height: spacing.lg }} />
 
-        <Input
-          placeholder="Correo electrónico"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <View style={{ height: spacing.sm }} />
-        <Input placeholder="Contraseña" secureTextEntry value={password} onChangeText={setPassword} />
+        <Card>
+          <Input
+            placeholder="Correo electrónico"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <View style={{ height: spacing.sm }} />
+          <Input placeholder="Contraseña" secureTextEntry value={password} onChangeText={setPassword} />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <View style={{ height: spacing.md }} />
-        <Button title="Entrar" onPress={handleLogin} loading={loading} />
+          <View style={{ height: spacing.md }} />
+          <Button title="Entrar" onPress={handleLogin} loading={loading} />
+        </Card>
 
         <View style={{ height: spacing.lg }} />
         <Link href="/(auth)/signup" style={styles.link}>
@@ -64,17 +66,25 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: spacing.lg,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
-  emoji: { fontSize: 48, textAlign: 'center' },
+  hero: {
+    borderRadius: radius.lg,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+  },
+  emoji: { fontSize: 48 },
   title: {
-    color: colors.text,
-    fontSize: 26,
+    color: '#FFFFFF',
+    fontSize: 30,
     fontWeight: '800',
-    textAlign: 'center',
     marginTop: spacing.sm,
   },
   subtitle: {
-    color: colors.textMuted,
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 14,
     textAlign: 'center',
     marginTop: 4,
@@ -87,6 +97,6 @@ const styles = StyleSheet.create({
   link: {
     color: colors.primary,
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

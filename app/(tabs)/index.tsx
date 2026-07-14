@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Card, EmptyState } from '../../components/UI';
-import { colors, radius, spacing } from '../../constants/theme';
+import { Card, EmptyState, IconBadge } from '../../components/UI';
+import { colors, radius, shadow, spacing } from '../../constants/theme';
 import type { Room } from '../../lib/database.types';
 
 interface RoomListItem extends Room {
@@ -13,7 +14,7 @@ interface RoomListItem extends Room {
 }
 
 export default function RoomsScreen() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const router = useRouter();
   const [rooms, setRooms] = useState<RoomListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +79,8 @@ export default function RoomsScreen() {
       <FlatList
         data={rooms}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={rooms.length === 0 ? { flex: 1 } : styles.list}
+        contentContainerStyle={[styles.list, rooms.length === 0 && { flex: 1 }]}
+        style={{ width: '100%', maxWidth: 640, alignSelf: 'center' }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -88,6 +90,12 @@ export default function RoomsScreen() {
             }}
             tintColor={colors.primary}
           />
+        }
+        ListHeaderComponent={
+          <LinearGradient colors={[colors.bgGradientStart, colors.bgGradientEnd]} style={styles.hero}>
+            <Text style={styles.heroGreeting}>¡Hola, {profile?.username?.split('_')[0] ?? ''}! 👋</Text>
+            <Text style={styles.heroTitle}>Tus salas</Text>
+          </LinearGradient>
         }
         ListEmptyComponent={
           !loading ? (
@@ -102,7 +110,8 @@ export default function RoomsScreen() {
             <Pressable>
               <Card style={{ marginBottom: spacing.sm }}>
                 <View style={styles.roomRow}>
-                  <View style={{ flex: 1 }}>
+                  <IconBadge seed={item.id} emoji="🏠" />
+                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
                     <Text style={styles.roomName}>{item.name}</Text>
                     <Text style={styles.roomMeta}>
                       {item.member_count} {item.member_count === 1 ? 'miembro' : 'miembros'} · código{' '}
@@ -129,16 +138,23 @@ export default function RoomsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   list: { padding: spacing.md },
+  hero: {
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  heroGreeting: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' },
+  heroTitle: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', marginTop: 4 },
   roomRow: { flexDirection: 'row', alignItems: 'center' },
   roomName: { color: colors.text, fontSize: 17, fontWeight: '700' },
   roomMeta: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
   pointsPill: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.pointsBg,
     borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  pointsText: { color: colors.points, fontWeight: '700', fontSize: 13 },
+  pointsText: { color: colors.points, fontWeight: '800', fontSize: 13 },
   fab: {
     position: 'absolute',
     right: spacing.lg,
@@ -149,11 +165,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    ...shadow,
   },
-  fabText: { color: colors.text, fontSize: 28, fontWeight: '700', marginTop: -2 },
+  fabText: { color: colors.textOnPrimary, fontSize: 28, fontWeight: '700', marginTop: -2 },
 });

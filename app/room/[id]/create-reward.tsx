@@ -2,12 +2,14 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
+import { useToast } from '../../../context/ToastContext';
 import { Button, Card, Input } from '../../../components/UI';
 import { colors, spacing } from '../../../constants/theme';
 
 export default function CreateRewardScreen() {
   const { id, rewardId } = useLocalSearchParams<{ id: string; rewardId?: string }>();
   const router = useRouter();
+  const { celebrate } = useToast();
   const isEditing = !!rewardId;
 
   const [title, setTitle] = useState('');
@@ -61,7 +63,12 @@ export default function CreateRewardScreen() {
       setError(error.message);
       return;
     }
-    router.back();
+    celebrate({
+      emoji: '🎁',
+      title: isEditing ? '¡Cambios guardados!' : '¡Recompensa propuesta!',
+      message: 'Queda pendiente hasta que otro integrante de la sala la apruebe.',
+      onDismiss: () => router.back(),
+    });
   };
 
   if (loadingReward) {

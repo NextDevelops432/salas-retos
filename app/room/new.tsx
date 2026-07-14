@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { useToast } from '../../context/ToastContext';
 import { Button, Card, Input } from '../../components/UI';
 import { colors, radius, spacing } from '../../constants/theme';
 
 export default function NewRoomScreen() {
   const router = useRouter();
+  const { celebrate } = useToast();
   const [mode, setMode] = useState<'create' | 'join'>('create');
 
   const [name, setName] = useState('');
@@ -31,7 +33,12 @@ export default function NewRoomScreen() {
       setError(error.message);
       return;
     }
-    router.replace({ pathname: '/room/[id]', params: { id: data.id } });
+    celebrate({
+      emoji: '🎉',
+      title: '¡Sala creada!',
+      message: 'Ahora invita a quien quieras con el código de invitación.',
+      onDismiss: () => router.replace({ pathname: '/room/[id]', params: { id: data.id } }),
+    });
   };
 
   const handleJoin = async () => {
@@ -47,7 +54,12 @@ export default function NewRoomScreen() {
       setError(error.message);
       return;
     }
-    router.replace({ pathname: '/room/[id]', params: { id: data.id } });
+    celebrate({
+      emoji: '🤝',
+      title: '¡Te uniste a la sala!',
+      message: `Ahora eres parte de "${data.name}".`,
+      onDismiss: () => router.replace({ pathname: '/room/[id]', params: { id: data.id } }),
+    });
   };
 
   return (
@@ -122,7 +134,7 @@ const styles = StyleSheet.create({
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: radius.sm, alignItems: 'center' },
   segmentBtnActive: { backgroundColor: colors.primary },
   segmentText: { color: colors.textMuted, fontWeight: '600', fontSize: 13 },
-  segmentTextActive: { color: colors.text },
+  segmentTextActive: { color: colors.textOnPrimary },
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   error: { color: colors.danger, marginTop: spacing.sm },
 });

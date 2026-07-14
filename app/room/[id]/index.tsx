@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { Link, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
-import { Badge, Card, EmptyState } from '../../../components/UI';
-import { colors, radius, spacing } from '../../../constants/theme';
-import { formatDueIn } from '../../../lib/format';
+import { useToast } from '../../../context/ToastContext';
+import { Badge, Card, EmptyState, IconBadge } from '../../../components/UI';
+import { colors, radius, shadow, spacing } from '../../../constants/theme';
+import { formatDueIn, pickRewardEmoji, pickTaskEmoji } from '../../../lib/format';
 import type { Reward, Room, Task, TaskCompletion } from '../../../lib/database.types';
 
 type TabKey = 'tasks' | 'rewards';
@@ -17,11 +19,11 @@ interface TaskWithMyStatus extends Task {
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
+  const { notify, celebrate } = useToast();
   const router = useRouter();
 
   const [tab, setTab] = useState<TabKey>('tasks');
   const [room, setRoom] = useState<Room | null>(null);
-  const [isOwner, setIsOwner] = useState(false);
   const [pointsBalance, setPointsBalance] = useState(0);
   const [tasks, setTasks] = useState<TaskWithMyStatus[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
@@ -32,9 +34,8 @@ export default function RoomDetailScreen() {
   const load = useCallback(async () => {
     if (!session || !id) return;
 
-    const [{ data: roomData }, { data: membership }, { data: pointsRow }] = await Promise.all([
+    const [{ data: roomData }, { data: pointsRow }] = await Promise.all([
       supabase.from('rooms').select('*').eq('id', id).single(),
-      supabase.from('room_members').select('role').eq('room_id', id).eq('user_id', session.user.id).single(),
       supabase
         .from('room_member_points')
         .select('points_balance')
@@ -44,7 +45,6 @@ export default function RoomDetailScreen() {
     ]);
 
     setRoom(roomData ?? null);
-    setIsOwner(membership?.role === 'owner');
     setPointsBalance(pointsRow?.points_balance ?? 0);
 
     const { data: taskRows } = await supabase
@@ -131,43 +131,56 @@ export default function RoomDetailScreen() {
   );
 
   const handleRedeem = async (reward: Reward) => {
+    setBusyId(reward.id);
     const { error } = await supabase.rpc('redeem_reward', { p_reward_id: reward.id });
+    setBusyId(null);
     if (error) {
-      Alert.alert('No se pudo canjear', error.message);
+      notify({ tone: 'error', title: 'No se pudo canjear', message: error.message });
       return;
     }
-    Alert.alert(
-      'Solicitud enviada',
-      `Tu canje de "${reward.title}" por ${reward.cost_points} pts queda pendiente hasta que otro integrante de la sala lo apruebe.`
-    );
+    celebrate({
+      emoji: '🎁',
+      title: '¡Solicitud enviada!',
+      message: `Tu canje de "${reward.title}" queda pendiente hasta que otro integrante de la sala lo apruebe.`,
+    });
     load();
   };
 
-  const reviewTask = async (taskId: string, approve: boolean) => {
+  const reviewTask = async (taskId: string, taskTitle: string, approve: boolean) => {
     setBusyId(taskId);
     const { error } = await supabase.rpc('review_task_approval', { p_task_id: taskId, p_approve: approve });
     setBusyId(null);
     if (error) {
-      Alert.alert('No se pudo procesar', error.message);
+      notify({ tone: 'error', title: 'No se pudo procesar', message: error.message });
       return;
+    }
+    if (approve) {
+      celebrate({ emoji: '✅', title: '¡Reto aprobado!', message: `"${taskTitle}" ya está activo en la sala.` });
+    } else {
+      notify({ tone: 'info', title: 'Reto rechazado', message: `"${taskTitle}" quedó archivado.` });
     }
     load();
   };
 
-  const reviewReward = async (rewardId: string, approve: boolean) => {
+  const reviewReward = async (rewardId: string, rewardTitle: string, approve: boolean) => {
     setBusyId(rewardId);
     const { error } = await supabase.rpc('review_reward_approval', { p_reward_id: rewardId, p_approve: approve });
     setBusyId(null);
     if (error) {
-      Alert.alert('No se pudo procesar', error.message);
+      notify({ tone: 'error', title: 'No se pudo procesar', message: error.message });
       return;
+    }
+    if (approve) {
+      celebrate({ emoji: '✅', title: '¡Recompensa aprobada!', message: `"${rewardTitle}" ya se puede canjear.` });
+    } else {
+      notify({ tone: 'info', title: 'Recompensa rechazada', message: `"${rewardTitle}" quedó archivada.` });
     }
     load();
   };
 
   const shareInvite = () => {
     if (!room) return;
-    Share.share({ message: `Únete a mi sala "${room.name}" en Salas de Retos con el código: ${room.invite_code}` });
+    Share.share({ message: `Únete a mi sala "${room.name}" en RetaMe con el código: ${room.invite_code}` });
   };
 
   if (!room && !loading) {
@@ -180,10 +193,10 @@ export default function RoomDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.md }}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: room?.name ?? 'Sala' }} />
 
-      <Card>
+      <LinearGradient colors={[colors.bgGradientStart, colors.bgGradientEnd]} style={styles.hero}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.roomName}>{room?.name}</Text>
@@ -194,17 +207,17 @@ export default function RoomDetailScreen() {
             <Text style={styles.pointsLabel}>puntos</Text>
           </View>
         </View>
-        <View style={{ height: spacing.sm }} />
+        <View style={{ height: spacing.md }} />
         <Pressable onPress={shareInvite} style={styles.inviteRow}>
           <Text style={styles.inviteLabel}>Código de invitación</Text>
-          <Text style={styles.inviteCode}>{room?.invite_code} ↗</Text>
+          <Text style={styles.inviteCode}>{room?.invite_code}  ↗</Text>
         </Pressable>
-      </Card>
+      </LinearGradient>
 
       {pendingReviewCount > 0 && (
         <Link href={{ pathname: '/room/[id]/review', params: { id: id as string } }} asChild>
           <Pressable>
-            <Card style={{ marginTop: spacing.md, borderColor: colors.warning }}>
+            <Card style={{ marginTop: spacing.md, backgroundColor: colors.warningBg }}>
               <Text style={styles.reviewBanner}>
                 📋 {pendingReviewCount} {pendingReviewCount === 1 ? 'cosa pendiente' : 'cosas pendientes'} de aprobar
               </Text>
@@ -240,7 +253,8 @@ export default function RoomDetailScreen() {
                   <Link href={{ pathname: '/room/[id]/task/[taskId]', params: { id: id as string, taskId: task.id } }} asChild>
                     <Pressable>
                       <View style={styles.taskRow}>
-                        <View style={{ flex: 1 }}>
+                        <IconBadge seed={task.id} emoji={pickTaskEmoji(task.title)} />
+                        <View style={{ flex: 1, marginLeft: spacing.sm }}>
                           <Text style={styles.taskTitle}>{task.title}</Text>
                           <View style={styles.taskBadges}>
                             <Badge text={due.label} tone={due.overdue ? 'danger' : 'default'} />
@@ -266,19 +280,19 @@ export default function RoomDetailScreen() {
                       <>
                         <View style={{ width: spacing.sm }} />
                         <Pressable
-                          style={[styles.smallBtn, { backgroundColor: colors.danger }]}
+                          style={[styles.smallBtn, { backgroundColor: colors.dangerBg }]}
                           disabled={busyId === task.id}
-                          onPress={() => reviewTask(task.id, false)}
+                          onPress={() => reviewTask(task.id, task.title, false)}
                         >
-                          <Text style={styles.redeemBtnText}>Rechazar</Text>
+                          <Text style={[styles.smallBtnText, { color: colors.danger }]}>Rechazar</Text>
                         </Pressable>
                         <View style={{ width: spacing.sm }} />
                         <Pressable
                           style={[styles.smallBtn, { backgroundColor: colors.primary }]}
                           disabled={busyId === task.id}
-                          onPress={() => reviewTask(task.id, true)}
+                          onPress={() => reviewTask(task.id, task.title, true)}
                         >
-                          <Text style={styles.redeemBtnText}>Aprobar</Text>
+                          <Text style={[styles.smallBtnText, { color: colors.textOnPrimary }]}>Aprobar</Text>
                         </Pressable>
                       </>
                     )}
@@ -304,9 +318,10 @@ export default function RoomDetailScreen() {
               return (
                 <Card key={reward.id} style={{ marginBottom: spacing.sm }}>
                   <View style={styles.taskRow}>
-                    <View style={{ flex: 1 }}>
+                    <IconBadge seed={reward.id} emoji={pickRewardEmoji(reward.title)} />
+                    <View style={{ flex: 1, marginLeft: spacing.sm }}>
                       <Text style={styles.taskTitle}>{reward.title}</Text>
-                      {reward.description ? <Text style={styles.roomDesc}>{reward.description}</Text> : null}
+                      {reward.description ? <Text style={styles.roomDescCard}>{reward.description}</Text> : null}
                       {isPending && (
                         <View style={{ marginTop: 6 }}>
                           <Badge text="Pendiente de aprobación" tone="warning" />
@@ -327,19 +342,19 @@ export default function RoomDetailScreen() {
                       <>
                         <View style={{ width: spacing.sm }} />
                         <Pressable
-                          style={[styles.smallBtn, { backgroundColor: colors.danger }]}
+                          style={[styles.smallBtn, { backgroundColor: colors.dangerBg }]}
                           disabled={busyId === reward.id}
-                          onPress={() => reviewReward(reward.id, false)}
+                          onPress={() => reviewReward(reward.id, reward.title, false)}
                         >
-                          <Text style={styles.redeemBtnText}>Rechazar</Text>
+                          <Text style={[styles.smallBtnText, { color: colors.danger }]}>Rechazar</Text>
                         </Pressable>
                         <View style={{ width: spacing.sm }} />
                         <Pressable
                           style={[styles.smallBtn, { backgroundColor: colors.primary }]}
                           disabled={busyId === reward.id}
-                          onPress={() => reviewReward(reward.id, true)}
+                          onPress={() => reviewReward(reward.id, reward.title, true)}
                         >
-                          <Text style={styles.redeemBtnText}>Aprobar</Text>
+                          <Text style={[styles.smallBtnText, { color: colors.textOnPrimary }]}>Aprobar</Text>
                         </Pressable>
                       </>
                     ) : (
@@ -351,10 +366,15 @@ export default function RoomDetailScreen() {
                             { flex: 1 },
                             (isPending || pointsBalance < reward.cost_points) && styles.redeemBtnDisabled,
                           ]}
-                          disabled={isPending || pointsBalance < reward.cost_points}
+                          disabled={isPending || pointsBalance < reward.cost_points || busyId === reward.id}
                           onPress={() => handleRedeem(reward)}
                         >
-                          <Text style={styles.redeemBtnText}>
+                          <Text
+                            style={[
+                              styles.smallBtnText,
+                              { color: isPending || pointsBalance < reward.cost_points ? colors.textMuted : colors.textOnPrimary },
+                            ]}
+                          >
                             {isPending
                               ? 'Esperando aprobación'
                               : pointsBalance < reward.cost_points
@@ -384,29 +404,31 @@ export default function RoomDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: spacing.md, maxWidth: 640, width: '100%', alignSelf: 'center' },
+  hero: { borderRadius: radius.lg, padding: spacing.lg },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  roomName: { color: colors.text, fontSize: 20, fontWeight: '800' },
-  roomDesc: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
+  roomName: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
+  roomDesc: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 4 },
+  roomDescCard: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
   pointsBox: { alignItems: 'center', marginLeft: spacing.sm },
-  pointsValue: { color: colors.points, fontSize: 22, fontWeight: '800' },
-  pointsLabel: { color: colors.textMuted, fontSize: 11 },
+  pointsValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '800' },
+  pointsLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
   inviteRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     padding: spacing.sm,
     borderRadius: radius.sm,
   },
-  inviteLabel: { color: colors.textMuted, fontSize: 12 },
-  inviteCode: { color: colors.primary, fontWeight: '700', fontSize: 13 },
+  inviteLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
+  inviteCode: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
   reviewBanner: { color: colors.warning, fontWeight: '700' },
   segment: { flexDirection: 'row', backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 4 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: radius.sm, alignItems: 'center' },
-  segmentBtnActive: { backgroundColor: colors.primary },
-  segmentText: { color: colors.textMuted, fontWeight: '600', fontSize: 13 },
-  segmentTextActive: { color: colors.text },
-  subheading: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginBottom: spacing.sm, textTransform: 'uppercase' },
-  taskRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  segmentBtnActive: { backgroundColor: colors.primary, ...shadow },
+  segmentText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
+  segmentTextActive: { color: colors.textOnPrimary },
+  taskRow: { flexDirection: 'row', alignItems: 'center' },
   taskTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
   taskBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   addRow: { paddingVertical: spacing.md, alignItems: 'center' },
@@ -414,19 +436,19 @@ const styles = StyleSheet.create({
   buttonsRow: { flexDirection: 'row', alignItems: 'center' },
   editBtn: {
     backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     paddingVertical: 10,
     paddingHorizontal: 14,
     alignItems: 'center',
   },
   editBtnText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
-  smallBtn: { flex: 1, borderRadius: radius.sm, paddingVertical: 10, alignItems: 'center' },
+  smallBtn: { flex: 1, borderRadius: radius.pill, paddingVertical: 10, alignItems: 'center' },
+  smallBtnText: { fontWeight: '800', fontSize: 13 },
   redeemBtn: {
     backgroundColor: colors.primary,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     paddingVertical: 10,
     alignItems: 'center',
   },
   redeemBtnDisabled: { backgroundColor: colors.surfaceAlt },
-  redeemBtnText: { color: colors.text, fontWeight: '700', fontSize: 13 },
 });
