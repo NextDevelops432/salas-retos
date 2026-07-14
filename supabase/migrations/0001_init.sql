@@ -40,7 +40,7 @@ create trigger on_auth_user_created
 -- ROOMS
 -- ============================================================
 create table rooms (
-  id           uuid primary key default uuid_generate_v4(),
+  id           uuid primary key default gen_random_uuid(),
   name         text not null,
   description  text not null default '',
   invite_code  text not null unique,
@@ -49,7 +49,7 @@ create table rooms (
 );
 
 create table room_members (
-  id         uuid primary key default uuid_generate_v4(),
+  id         uuid primary key default gen_random_uuid(),
   room_id    uuid not null references rooms(id) on delete cascade,
   user_id    uuid not null references auth.users(id) on delete cascade,
   role       text not null default 'member' check (role in ('owner', 'member')),
@@ -64,7 +64,7 @@ create index idx_room_members_room on room_members(room_id);
 -- TASKS (retos)
 -- ============================================================
 create table tasks (
-  id                uuid primary key default uuid_generate_v4(),
+  id                uuid primary key default gen_random_uuid(),
   room_id           uuid not null references rooms(id) on delete cascade,
   title             text not null,
   description       text not null default '',
@@ -84,7 +84,7 @@ create index idx_tasks_room on tasks(room_id, status);
 -- TASK COMPLETIONS (evidencia + aprobación)
 -- ============================================================
 create table task_completions (
-  id             uuid primary key default uuid_generate_v4(),
+  id             uuid primary key default gen_random_uuid(),
   task_id        uuid not null references tasks(id) on delete cascade,
   room_id        uuid not null references rooms(id) on delete cascade,
   user_id        uuid not null references auth.users(id) on delete cascade,
@@ -106,7 +106,7 @@ create index idx_completions_task on task_completions(task_id);
 -- REWARDS (recompensas)
 -- ============================================================
 create table rewards (
-  id           uuid primary key default uuid_generate_v4(),
+  id           uuid primary key default gen_random_uuid(),
   room_id      uuid not null references rooms(id) on delete cascade,
   title        text not null,
   description  text not null default '',
@@ -122,7 +122,7 @@ create index idx_rewards_room on rewards(room_id, is_active);
 -- REWARD REDEMPTIONS (canjes)
 -- ============================================================
 create table reward_redemptions (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   reward_id     uuid not null references rewards(id) on delete cascade,
   room_id       uuid not null references rooms(id) on delete cascade,
   user_id       uuid not null references auth.users(id) on delete cascade,
@@ -212,7 +212,7 @@ begin
   end if;
 
   loop
-    code := upper(substr(replace(uuid_generate_v4()::text, '-', ''), 1, 6));
+    code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
     exit when not exists (select 1 from rooms where invite_code = code);
   end loop;
 
