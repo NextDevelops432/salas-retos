@@ -1,16 +1,15 @@
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
-import { useAuth } from '../../../context/AuthContext';
 import { Button, Card, Input } from '../../../components/UI';
 import { colors, radius, spacing } from '../../../constants/theme';
 import { durationToHours } from '../../../lib/format';
 
 export default function CreateTaskScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { session } = useAuth();
+  const { id, taskId } = useLocalSearchParams<{ id: string; taskId?: string }>();
   const router = useRouter();
+  const isEditing = !!taskId;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -19,31 +18,71 @@ export default function CreateTaskScreen() {
   const [unit, setUnit] = useState<'hours' | 'days'>('hours');
   const [requiresApproval, setRequiresApproval] = useState(true);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [loadingTask, setLoadingTask] = useState(isEditing);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCreate = async () => {
+  useFocusEffect(
+    useCallback(() => {
+      if (!taskId) return;
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setTitle(data.title);
+            setDescription(data.description ?? '');
+            setPoints(String(data.points));
+            setRequiresApproval(data.requires_approval);
+            setIsRecurring(data.is_recurring);
+            if (data.recurrence_hours) {
+              if (data.recurrence_hours % 24 === 0) {
+                setAmount(String(data.recurrence_hours / 24));
+                setUnit('days');
+              } else {
+                setAmount(String(data.recurrence_hours));
+                setUnit('hours');
+              }
+            }
+          }
+          setLoadingTask(false);
+        });
+    }, [taskId])
+  );
+
+  const handleSubmit = async () => {
     setError(null);
     if (!title.trim()) return setError('Ponle un título al reto.');
     const pointsNum = parseInt(points, 10);
     if (!pointsNum || pointsNum <= 0) return setError('Los puntos deben ser un número mayor a 0.');
     const amountNum = parseInt(amount, 10);
     if (!amountNum || amountNum <= 0) return setError('El plazo debe ser un número mayor a 0.');
-    if (!session) return;
 
     const hours = durationToHours(amountNum, unit);
     setLoading(true);
-    const { error } = await supabase.from('tasks').insert({
-      room_id: id,
-      title: title.trim(),
-      description: description.trim(),
-      points: pointsNum,
-      due_at: new Date(Date.now() + hours * 3600 * 1000).toISOString(),
-      requires_approval: requiresApproval,
-      is_recurring: isRecurring,
-      recurrence_hours: isRecurring ? hours : null,
-      created_by: session.user.id,
-    });
+    const { error } = isEditing
+      ? await supabase.rpc('propose_task_edit', {
+          p_task_id: taskId,
+          p_title: title.trim(),
+          p_description: description.trim(),
+          p_points: pointsNum,
+          p_due_at: new Date(Date.now() + hours * 3600 * 1000).toISOString(),
+          p_requires_approval: requiresApproval,
+          p_is_recurring: isRecurring,
+          p_recurrence_hours: isRecurring ? hours : null,
+        })
+      : await supabase.rpc('create_task', {
+          p_room_id: id,
+          p_title: title.trim(),
+          p_description: description.trim(),
+          p_points: pointsNum,
+          p_due_at: new Date(Date.now() + hours * 3600 * 1000).toISOString(),
+          p_requires_approval: requiresApproval,
+          p_is_recurring: isRecurring,
+          p_recurrence_hours: isRecurring ? hours : null,
+        });
     setLoading(false);
     if (error) {
       setError(error.message);
@@ -52,11 +91,26 @@ export default function CreateTaskScreen() {
     router.back();
   };
 
+  if (loadingTask) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: 'Nuevo reto' }} />
+      <Stack.Screen options={{ title: isEditing ? 'Editar reto' : 'Nuevo reto' }} />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Card>
+          <Text style={styles.notice}>
+            {isEditing
+              ? 'Al guardar, este reto vuelve a quedar pendiente de aprobación por otro integrante.'
+              : 'Este reto quedará pendiente hasta que otro integrante de la sala lo apruebe.'}
+          </Text>
+          <View style={{ height: spacing.sm }} />
+
           <Text style={styles.label}>Título</Text>
           <View style={{ height: spacing.xs }} />
           <Input placeholder="Ej. Barrer la casa" value={title} onChangeText={setTitle} />
@@ -72,7 +126,7 @@ export default function CreateTaskScreen() {
           <Input placeholder="10" keyboardType="number-pad" value={points} onChangeText={setPoints} />
 
           <View style={{ height: spacing.sm }} />
-          <Text style={styles.label}>Vence en</Text>
+          <Text style={styles.label}>Vence en (a partir de ahora)</Text>
           <View style={{ height: spacing.xs }} />
           <View style={styles.row}>
             <Input
@@ -113,7 +167,7 @@ export default function CreateTaskScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <View style={{ height: spacing.md }} />
-          <Button title="Crear reto" onPress={handleCreate} loading={loading} />
+          <Button title={isEditing ? 'Guardar cambios' : 'Crear reto'} onPress={handleSubmit} loading={loading} />
         </Card>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -122,6 +176,8 @@ export default function CreateTaskScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: spacing.md },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  notice: { color: colors.textMuted, fontSize: 12 },
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   row: { flexDirection: 'row', alignItems: 'center' },
   unitToggle: { flexDirection: 'row', backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 4 },

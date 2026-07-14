@@ -111,7 +111,11 @@ export default function TaskDetailScreen() {
 
   const due = formatDueIn(task.due_at);
   const latest = myCompletions[0];
-  const canSubmit = task.status === 'active' && !due.overdue && (!latest || latest.status === 'rejected');
+  const canSubmit =
+    task.status === 'active' &&
+    task.approval_status === 'approved' &&
+    !due.overdue &&
+    (!latest || latest.status === 'rejected');
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.md }}>
@@ -128,6 +132,11 @@ export default function TaskDetailScreen() {
         {task.is_recurring ? (
           <View style={{ marginTop: 6 }}>
             <Badge text="Reto recurrente" tone="accent" />
+          </View>
+        ) : null}
+        {task.approval_status === 'pending' ? (
+          <View style={{ marginTop: 6 }}>
+            <Badge text="Pendiente de aprobación de la sala" tone="warning" />
           </View>
         ) : null}
       </Card>

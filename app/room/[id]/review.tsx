@@ -20,17 +20,26 @@ interface RedemptionReviewItem {
   username: string;
 }
 
+interface ProposalItem {
+  id: string;
+  title: string;
+  points: number;
+  username: string;
+}
+
 export default function ReviewScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [redemptions, setRedemptions] = useState<RedemptionReviewItem[]>([]);
+  const [taskProposals, setTaskProposals] = useState<ProposalItem[]>([]);
+  const [rewardProposals, setRewardProposals] = useState<ProposalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id || !session) return;
-    const [{ data }, { data: redemptionRows }] = await Promise.all([
+    const [{ data }, { data: redemptionRows }, { data: taskRows }, { data: rewardRows }] = await Promise.all([
       supabase
         .from('task_completions')
         .select('*, task:tasks(title, points, created_by), user:profiles!task_completions_user_id_fkey(username)')
@@ -44,6 +53,20 @@ export default function ReviewScreen() {
         .eq('status', 'pending')
         .neq('user_id', session.user.id)
         .order('redeemed_at', { ascending: true }),
+      supabase
+        .from('tasks')
+        .select('id, title, points, last_modified_by, user:profiles!tasks_last_modified_by_fkey(username)')
+        .eq('room_id', id)
+        .eq('approval_status', 'pending')
+        .neq('last_modified_by', session.user.id)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('rewards')
+        .select('id, title, cost_points, last_modified_by, user:profiles!rewards_last_modified_by_fkey(username)')
+        .eq('room_id', id)
+        .eq('approval_status', 'pending')
+        .neq('last_modified_by', session.user.id)
+        .order('created_at', { ascending: true }),
     ]);
 
     setItems(
@@ -59,6 +82,22 @@ export default function ReviewScreen() {
         id: row.id,
         rewardTitle: row.reward?.title ?? 'Recompensa',
         pointsSpent: row.points_spent,
+        username: row.user?.username ?? 'Usuario',
+      }))
+    );
+    setTaskProposals(
+      (taskRows ?? []).map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        points: row.points,
+        username: row.user?.username ?? 'Usuario',
+      }))
+    );
+    setRewardProposals(
+      (rewardRows ?? []).map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        points: row.cost_points,
         username: row.user?.username ?? 'Usuario',
       }))
     );
@@ -101,6 +140,28 @@ export default function ReviewScreen() {
     load();
   };
 
+  const reviewTaskProposal = async (taskId: string, approve: boolean) => {
+    setBusyId(taskId);
+    const { error } = await supabase.rpc('review_task_approval', { p_task_id: taskId, p_approve: approve });
+    setBusyId(null);
+    if (error) {
+      Alert.alert('No se pudo procesar', error.message);
+      return;
+    }
+    load();
+  };
+
+  const reviewRewardProposal = async (rewardId: string, approve: boolean) => {
+    setBusyId(rewardId);
+    const { error } = await supabase.rpc('review_reward_approval', { p_reward_id: rewardId, p_approve: approve });
+    setBusyId(null);
+    if (error) {
+      Alert.alert('No se pudo procesar', error.message);
+      return;
+    }
+    load();
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -113,9 +174,75 @@ export default function ReviewScreen() {
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.md }}>
       <Stack.Screen options={{ title: 'Aprobar' }} />
 
-      {items.length === 0 && redemptions.length === 0 ? (
+      {items.length === 0 && redemptions.length === 0 && taskProposals.length === 0 && rewardProposals.length === 0 ? (
         <EmptyState title="No hay nada pendiente" subtitle="Todo fue revisado." />
       ) : null}
+
+      {taskProposals.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Retos propuestos</Text>
+          {taskProposals.map((p) => (
+            <Card key={p.id} style={{ marginBottom: spacing.md }}>
+              <View style={styles.headerRow}>
+                <Text style={styles.taskTitle}>{p.title}</Text>
+                <Text style={styles.points}>{p.points} pts</Text>
+              </View>
+              <Text style={styles.username}>Propuesto por {p.username}</Text>
+              <View style={{ height: spacing.sm }} />
+              <View style={styles.buttonsRow}>
+                <Button
+                  title="Rechazar"
+                  variant="danger"
+                  onPress={() => reviewTaskProposal(p.id, false)}
+                  loading={busyId === p.id}
+                  style={{ flex: 1 }}
+                />
+                <View style={{ width: spacing.sm }} />
+                <Button
+                  title="Aprobar"
+                  onPress={() => reviewTaskProposal(p.id, true)}
+                  loading={busyId === p.id}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </Card>
+          ))}
+          <View style={{ height: spacing.md }} />
+        </>
+      )}
+
+      {rewardProposals.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Recompensas propuestas</Text>
+          {rewardProposals.map((p) => (
+            <Card key={p.id} style={{ marginBottom: spacing.md }}>
+              <View style={styles.headerRow}>
+                <Text style={styles.taskTitle}>{p.title}</Text>
+                <Text style={styles.points}>{p.points} pts</Text>
+              </View>
+              <Text style={styles.username}>Propuesto por {p.username}</Text>
+              <View style={{ height: spacing.sm }} />
+              <View style={styles.buttonsRow}>
+                <Button
+                  title="Rechazar"
+                  variant="danger"
+                  onPress={() => reviewRewardProposal(p.id, false)}
+                  loading={busyId === p.id}
+                  style={{ flex: 1 }}
+                />
+                <View style={{ width: spacing.sm }} />
+                <Button
+                  title="Aprobar"
+                  onPress={() => reviewRewardProposal(p.id, true)}
+                  loading={busyId === p.id}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </Card>
+          ))}
+          <View style={{ height: spacing.md }} />
+        </>
+      )}
 
       {redemptions.length > 0 && (
         <>

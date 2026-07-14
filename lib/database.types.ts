@@ -1,5 +1,6 @@
 export type TaskCompletionStatus = 'pending' | 'approved' | 'rejected';
 export type RedemptionStatus = 'pending' | 'approved' | 'rejected';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 export type RoomRole = 'owner' | 'member';
 
 export type Profile = {
@@ -37,6 +38,9 @@ export type Task = {
   is_recurring: boolean;
   recurrence_hours: number | null;
   status: 'active' | 'archived';
+  approval_status: ApprovalStatus;
+  last_modified_by: string | null;
+  rejected_at: string | null;
   created_by: string;
   created_at: string;
 };
@@ -63,6 +67,9 @@ export type Reward = {
   description: string;
   cost_points: number;
   is_active: boolean;
+  approval_status: ApprovalStatus;
+  last_modified_by: string | null;
+  rejected_at: string | null;
   created_by: string;
   created_at: string;
 };
@@ -133,6 +140,42 @@ export type Database = {
         Args: { p_redemption_id: string; p_approve: boolean; p_review_note?: string | null };
         Returns: RewardRedemption;
       };
+      create_task: {
+        Args: {
+          p_room_id: string;
+          p_title: string;
+          p_description: string;
+          p_points: number;
+          p_due_at: string | null;
+          p_requires_approval: boolean;
+          p_is_recurring: boolean;
+          p_recurrence_hours: number | null;
+        };
+        Returns: Task;
+      };
+      propose_task_edit: {
+        Args: {
+          p_task_id: string;
+          p_title: string;
+          p_description: string;
+          p_points: number;
+          p_due_at: string | null;
+          p_requires_approval: boolean;
+          p_is_recurring: boolean;
+          p_recurrence_hours: number | null;
+        };
+        Returns: Task;
+      };
+      review_task_approval: { Args: { p_task_id: string; p_approve: boolean }; Returns: Task };
+      create_reward: {
+        Args: { p_room_id: string; p_title: string; p_description: string; p_cost_points: number };
+        Returns: Reward;
+      };
+      propose_reward_edit: {
+        Args: { p_reward_id: string; p_title: string; p_description: string; p_cost_points: number };
+        Returns: Reward;
+      };
+      review_reward_approval: { Args: { p_reward_id: string; p_approve: boolean }; Returns: Reward };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
