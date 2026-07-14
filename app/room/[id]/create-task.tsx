@@ -3,9 +3,11 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
-import { Button, Card, Input } from '../../../components/UI';
+import { Button, Card, EmojiPicker, Input } from '../../../components/UI';
 import { colors, radius, spacing } from '../../../constants/theme';
 import { durationToHours } from '../../../lib/format';
+
+const TASK_EMOJI_PICKS = ['✅', '⭐', '🏆', '🧹', '🍳', '📚', '🛁', '🧺', '🍽️', '🐾', '🏋️', '🗑️', '🌱', '🚗', '💻'];
 
 export default function CreateTaskScreen() {
   const { id, taskId } = useLocalSearchParams<{ id: string; taskId?: string }>();
@@ -20,6 +22,7 @@ export default function CreateTaskScreen() {
   const [unit, setUnit] = useState<'hours' | 'days'>('hours');
   const [requiresApproval, setRequiresApproval] = useState(true);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [icon, setIcon] = useState('');
   const [loadingTask, setLoadingTask] = useState(isEditing);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +42,7 @@ export default function CreateTaskScreen() {
             setPoints(String(data.points));
             setRequiresApproval(data.requires_approval);
             setIsRecurring(data.is_recurring);
+            setIcon(data.icon ?? '');
             if (data.recurrence_hours) {
               if (data.recurrence_hours % 24 === 0) {
                 setAmount(String(data.recurrence_hours / 24));
@@ -74,6 +78,7 @@ export default function CreateTaskScreen() {
           p_requires_approval: requiresApproval,
           p_is_recurring: isRecurring,
           p_recurrence_hours: isRecurring ? hours : null,
+          p_icon: icon || null,
         })
       : await supabase.rpc('create_task', {
           p_room_id: id,
@@ -84,6 +89,7 @@ export default function CreateTaskScreen() {
           p_requires_approval: requiresApproval,
           p_is_recurring: isRecurring,
           p_recurrence_hours: isRecurring ? hours : null,
+          p_icon: icon || null,
         });
     setLoading(false);
     if (error) {
@@ -118,6 +124,11 @@ export default function CreateTaskScreen() {
           </Text>
           <View style={{ height: spacing.sm }} />
 
+          <Text style={styles.label}>Ícono</Text>
+          <View style={{ height: spacing.xs }} />
+          <EmojiPicker value={icon} onChange={setIcon} quickPicks={TASK_EMOJI_PICKS} fallback="✅" />
+
+          <View style={{ height: spacing.sm }} />
           <Text style={styles.label}>Título</Text>
           <View style={{ height: spacing.xs }} />
           <Input placeholder="Ej. Barrer la casa" value={title} onChangeText={setTitle} />

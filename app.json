@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.nextdevelops432.retame",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -33,6 +34,13 @@
     ],
     "experiments": {
       "baseUrl": "/salas-retos"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c0618c87-f925-4d44-9ab7-bdd251ac2854"
+      }
+    },
+    "owner": "nextdevelops432"
   }
 }

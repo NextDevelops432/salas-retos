@@ -253,7 +253,7 @@ export default function RoomDetailScreen() {
                   <Link href={{ pathname: '/room/[id]/task/[taskId]', params: { id: id as string, taskId: task.id } }} asChild>
                     <Pressable>
                       <View style={styles.taskRow}>
-                        <IconBadge seed={task.id} emoji={pickTaskEmoji(task.title)} />
+                        <IconBadge seed={task.id} emoji={task.icon || pickTaskEmoji(task.title)} />
                         <View style={{ flex: 1, marginLeft: spacing.sm }}>
                           <Text style={styles.taskTitle}>{task.title}</Text>
                           <View style={styles.taskBadges}>
@@ -318,7 +318,7 @@ export default function RoomDetailScreen() {
               return (
                 <Card key={reward.id} style={{ marginBottom: spacing.sm }}>
                   <View style={styles.taskRow}>
-                    <IconBadge seed={reward.id} emoji={pickRewardEmoji(reward.title)} />
+                    <IconBadge seed={reward.id} emoji={reward.icon || pickRewardEmoji(reward.title)} />
                     <View style={{ flex: 1, marginLeft: spacing.sm }}>
                       <Text style={styles.taskTitle}>{reward.title}</Text>
                       {reward.description ? <Text style={styles.roomDescCard}>{reward.description}</Text> : null}

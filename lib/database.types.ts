@@ -41,6 +41,7 @@ export type Task = {
   approval_status: ApprovalStatus;
   last_modified_by: string | null;
   rejected_at: string | null;
+  icon: string | null;
   created_by: string;
   created_at: string;
 };
@@ -70,6 +71,7 @@ export type Reward = {
   approval_status: ApprovalStatus;
   last_modified_by: string | null;
   rejected_at: string | null;
+  icon: string | null;
   created_by: string;
   created_at: string;
 };
@@ -150,6 +152,7 @@ export type Database = {
           p_requires_approval: boolean;
           p_is_recurring: boolean;
           p_recurrence_hours: number | null;
+          p_icon?: string | null;
         };
         Returns: Task;
       };
@@ -163,16 +166,17 @@ export type Database = {
           p_requires_approval: boolean;
           p_is_recurring: boolean;
           p_recurrence_hours: number | null;
+          p_icon?: string | null;
         };
         Returns: Task;
       };
       review_task_approval: { Args: { p_task_id: string; p_approve: boolean }; Returns: Task };
       create_reward: {
-        Args: { p_room_id: string; p_title: string; p_description: string; p_cost_points: number };
+        Args: { p_room_id: string; p_title: string; p_description: string; p_cost_points: number; p_icon?: string | null };
         Returns: Reward;
       };
       propose_reward_edit: {
-        Args: { p_reward_id: string; p_title: string; p_description: string; p_cost_points: number };
+        Args: { p_reward_id: string; p_title: string; p_description: string; p_cost_points: number; p_icon?: string | null };
         Returns: Reward;
       };
       review_reward_approval: { Args: { p_reward_id: string; p_approve: boolean }; Returns: Reward };

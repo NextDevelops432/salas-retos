@@ -3,8 +3,10 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
-import { Button, Card, Input } from '../../../components/UI';
+import { Button, Card, EmojiPicker, Input } from '../../../components/UI';
 import { colors, spacing } from '../../../constants/theme';
+
+const REWARD_EMOJI_PICKS = ['🎁', '🎮', '🎬', '🍕', '🤗', '💃', '💵', '🚶', '😴', '💆', '🍦', '🎧', '🎨', '🛍️', '✨'];
 
 export default function CreateRewardScreen() {
   const { id, rewardId } = useLocalSearchParams<{ id: string; rewardId?: string }>();
@@ -15,6 +17,7 @@ export default function CreateRewardScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [cost, setCost] = useState('50');
+  const [icon, setIcon] = useState('');
   const [loadingReward, setLoadingReward] = useState(isEditing);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +35,7 @@ export default function CreateRewardScreen() {
             setTitle(data.title);
             setDescription(data.description ?? '');
             setCost(String(data.cost_points));
+            setIcon(data.icon ?? '');
           }
           setLoadingReward(false);
         });
@@ -51,12 +55,14 @@ export default function CreateRewardScreen() {
           p_title: title.trim(),
           p_description: description.trim(),
           p_cost_points: costNum,
+          p_icon: icon || null,
         })
       : await supabase.rpc('create_reward', {
           p_room_id: id,
           p_title: title.trim(),
           p_description: description.trim(),
           p_cost_points: costNum,
+          p_icon: icon || null,
         });
     setLoading(false);
     if (error) {
@@ -91,6 +97,11 @@ export default function CreateRewardScreen() {
           </Text>
           <View style={{ height: spacing.sm }} />
 
+          <Text style={styles.label}>Ícono</Text>
+          <View style={{ height: spacing.xs }} />
+          <EmojiPicker value={icon} onChange={setIcon} quickPicks={REWARD_EMOJI_PICKS} fallback="🎁" />
+
+          <View style={{ height: spacing.sm }} />
           <Text style={styles.label}>Nombre</Text>
           <View style={{ height: spacing.xs }} />
           <Input placeholder="Ej. Noche de videojuegos" value={title} onChangeText={setTitle} />

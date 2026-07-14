@@ -6,9 +6,9 @@ import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { useToast } from '../../../../context/ToastContext';
 import { uploadTaskPhoto } from '../../../../lib/uploadPhoto';
-import { Badge, Button, Card, Input } from '../../../../components/UI';
+import { Badge, Button, Card, IconBadge, Input } from '../../../../components/UI';
 import { colors, radius, spacing } from '../../../../constants/theme';
-import { formatDueIn } from '../../../../lib/format';
+import { formatDueIn, pickTaskEmoji } from '../../../../lib/format';
 import type { Task, TaskCompletion } from '../../../../lib/database.types';
 
 export default function TaskDetailScreen() {
@@ -123,7 +123,8 @@ export default function TaskDetailScreen() {
 
       <Card>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>{task.title}</Text>
+          <IconBadge seed={task.id} emoji={task.icon || pickTaskEmoji(task.title)} size={40} />
+          <Text style={[styles.title, { marginLeft: spacing.sm }]}>{task.title}</Text>
           <Badge text={`${task.points} pts`} tone="points" />
         </View>
         {task.description ? <Text style={styles.description}>{task.description}</Text> : null}

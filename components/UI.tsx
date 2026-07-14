@@ -87,6 +87,42 @@ export function Badge({ text, tone = 'default' }: { text: string; tone?: 'defaul
   );
 }
 
+export function EmojiPicker({
+  value,
+  onChange,
+  quickPicks,
+  fallback,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  quickPicks: string[];
+  fallback: string;
+}) {
+  return (
+    <View>
+      <View style={styles.emojiRow}>
+        <View style={styles.emojiPreview}>
+          <Text style={{ fontSize: 26 }}>{value || fallback}</Text>
+        </View>
+        <Input
+          style={{ flex: 1 }}
+          placeholder="Escribe o pega cualquier emoji"
+          value={value}
+          onChangeText={(t) => onChange(Array.from(t).slice(-2).join(''))}
+        />
+      </View>
+      <View style={{ height: spacing.xs }} />
+      <View style={styles.emojiGrid}>
+        {quickPicks.map((e) => (
+          <Pressable key={e} style={styles.emojiOption} onPress={() => onChange(e)}>
+            <Text style={{ fontSize: 20 }}>{e}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View style={styles.empty}>
@@ -151,5 +187,23 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
     textAlign: 'center',
+  },
+  emojiRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  emojiPreview: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  emojiOption: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
