@@ -1,0 +1,125 @@
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../../../context/AuthContext';
+import { Button, Card, EmptyState } from '../../../components/UI';
+import { colors, spacing, radius } from '../../../constants/theme';
+import type { TaskCompletion } from '../../../lib/database.types';
+
+interface ReviewItem extends TaskCompletion {
+  taskTitle: string;
+  taskPoints: number;
+  username: string;
+}
+
+export default function ReviewScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
+  const [items, setItems] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from('task_completions')
+      .select('*, task:tasks(title, points, created_by), user:profiles!task_completions_user_id_fkey(username)')
+      .eq('room_id', id)
+      .eq('status', 'pending')
+      .order('completed_at', { ascending: true });
+
+    setItems(
+      (data ?? []).map((row: any) => ({
+        ...row,
+        taskTitle: row.task?.title ?? 'Reto',
+        taskPoints: row.task?.points ?? 0,
+        username: row.user?.username ?? 'Usuario',
+      }))
+    );
+    setLoading(false);
+  }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const review = async (completionId: string, approve: boolean) => {
+    setBusyId(completionId);
+    const { error } = await supabase.rpc('review_completion', {
+      p_completion_id: completionId,
+      p_approve: approve,
+      p_review_note: null,
+    });
+    setBusyId(null);
+    if (error) {
+      Alert.alert('No se pudo procesar', error.message);
+      return;
+    }
+    load();
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.md }}>
+      <Stack.Screen options={{ title: 'Aprobar evidencias' }} />
+
+      {items.length === 0 ? (
+        <EmptyState title="No hay nada pendiente" subtitle="Todas las evidencias fueron revisadas." />
+      ) : (
+        items.map((item) => (
+          <Card key={item.id} style={{ marginBottom: spacing.md }}>
+            <View style={styles.headerRow}>
+              <Text style={styles.taskTitle}>{item.taskTitle}</Text>
+              <Text style={styles.points}>{item.taskPoints} pts</Text>
+            </View>
+            <Text style={styles.username}>Enviado por {item.username}</Text>
+            {item.photo_url ? (
+              <Image source={{ uri: item.photo_url }} style={styles.photo} resizeMode="cover" />
+            ) : null}
+            {item.note ? <Text style={styles.note}>"{item.note}"</Text> : null}
+            <View style={{ height: spacing.sm }} />
+            <View style={styles.buttonsRow}>
+              <Button
+                title="Rechazar"
+                variant="danger"
+                onPress={() => review(item.id, false)}
+                loading={busyId === item.id}
+                style={{ flex: 1 }}
+              />
+              <View style={{ width: spacing.sm }} />
+              <Button
+                title="Aprobar"
+                onPress={() => review(item.id, true)}
+                loading={busyId === item.id}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </Card>
+        ))
+      )}
+      <View style={{ height: spacing.xl }} />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  taskTitle: { color: colors.text, fontSize: 16, fontWeight: '700', flex: 1 },
+  points: { color: colors.points, fontWeight: '700' },
+  username: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  photo: { width: '100%', height: 220, borderRadius: radius.md, marginTop: spacing.sm },
+  note: { color: colors.textMuted, fontStyle: 'italic', marginTop: spacing.sm },
+  buttonsRow: { flexDirection: 'row' },
+});
