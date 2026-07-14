@@ -30,6 +30,9 @@
       "expo-status-bar",
       "expo-image",
       "expo-splash-screen"
-    ]
+    ],
+    "experiments": {
+      "baseUrl": "/salas-retos"
+    }
   }
 }
