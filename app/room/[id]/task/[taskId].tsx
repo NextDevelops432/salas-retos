@@ -19,6 +19,7 @@ export default function TaskDetailScreen() {
   const [task, setTask] = useState<Task | null>(null);
   const [myCompletions, setMyCompletions] = useState<TaskCompletion[]>([]);
   const [otherMembers, setOtherMembers] = useState<string[]>([]);
+  const [assigneeName, setAssigneeName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -52,6 +53,13 @@ export default function TaskDetailScreen() {
         setOtherMembers((memberProfiles ?? []).map((p) => p.username));
       } else {
         setOtherMembers([]);
+      }
+
+      if (taskRow.assigned_to) {
+        const { data: assignee } = await supabase.from('profiles').select('username').eq('id', taskRow.assigned_to).single();
+        setAssigneeName(assignee?.username ?? null);
+      } else {
+        setAssigneeName(null);
       }
     }
 
@@ -130,7 +138,9 @@ export default function TaskDetailScreen() {
 
   const due = formatDueIn(task.due_at);
   const latest = myCompletions[0];
+  const isMine = !task.assigned_to || task.assigned_to === session?.user.id;
   const canSubmit =
+    isMine &&
     task.status === 'active' &&
     task.approval_status === 'approved' &&
     !due.overdue &&
@@ -147,6 +157,9 @@ export default function TaskDetailScreen() {
           <Badge text={`${task.points} pts`} tone="points" />
         </View>
         {task.description ? <Text style={styles.description}>{task.description}</Text> : null}
+        {assigneeName ? (
+          <Text style={styles.assignee}>{isMine ? 'Asignado a ti' : `Asignado a ${assigneeName}`}</Text>
+        ) : null}
         <View style={{ height: spacing.sm }} />
         <Badge text={due.label} tone={due.overdue ? 'danger' : 'default'} />
         {task.is_recurring ? (
@@ -156,8 +169,8 @@ export default function TaskDetailScreen() {
         ) : null}
         {task.approval_status === 'pending' ? (
           <View style={{ marginTop: 6 }}>
-            <Badge text="Pendiente de aprobación de la sala" tone="warning" />
-            <Text style={styles.waitingOn}>Esperando que lo apruebe: {waitingOnLabel}</Text>
+            <Badge text="Cambios pendientes de confirmar" tone="warning" />
+            <Text style={styles.waitingOn}>Esperando que lo confirme: {assigneeName ?? 'la persona asignada'}</Text>
           </View>
         ) : null}
       </Card>
@@ -213,7 +226,15 @@ export default function TaskDetailScreen() {
         </>
       ) : null}
 
-      {!canSubmit && due.overdue && (!latest || latest.status === 'rejected') ? (
+      {!isMine && task.approval_status === 'approved' ? (
+        <View style={{ marginTop: spacing.md }}>
+          <Text style={styles.note}>
+            Este reto está asignado a {assigneeName ?? 'otra persona'}, solo esa persona puede marcarlo como hecho.
+          </Text>
+        </View>
+      ) : null}
+
+      {isMine && !canSubmit && due.overdue && (!latest || latest.status === 'rejected') ? (
         <View style={{ marginTop: spacing.md }}>
           <Text style={styles.note}>Esta tarea ya venció y no se puede completar.</Text>
         </View>
@@ -231,6 +252,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   title: { color: colors.text, fontSize: 19, fontWeight: '800', flex: 1, marginRight: spacing.sm },
   description: { color: colors.textMuted, marginTop: 6, fontSize: 13 },
+  assignee: { color: colors.textMuted, fontSize: 12, marginTop: 4, fontWeight: '600' },
   sectionTitle: { color: colors.text, fontWeight: '700', fontSize: 15 },
   photoButtons: { flexDirection: 'row' },
   photoPreview: { width: '100%', height: 200, borderRadius: radius.md, marginTop: spacing.sm, marginBottom: spacing.sm },

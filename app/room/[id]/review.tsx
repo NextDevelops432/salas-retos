@@ -63,10 +63,10 @@ export default function ReviewScreen() {
         .order('redeemed_at', { ascending: true }),
       supabase
         .from('tasks')
-        .select('id, title, points, last_modified_by')
+        .select('id, title, points, last_modified_by, assigned_to')
         .eq('room_id', id)
         .eq('approval_status', 'pending')
-        .neq('last_modified_by', session.user.id)
+        .eq('assigned_to', session.user.id)
         .order('created_at', { ascending: true }),
       supabase
         .from('rewards')

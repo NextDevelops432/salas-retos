@@ -42,6 +42,7 @@ export type Task = {
   last_modified_by: string | null;
   rejected_at: string | null;
   icon: string | null;
+  assigned_to: string | null;
   created_by: string;
   created_at: string;
 };
@@ -153,6 +154,7 @@ export type Database = {
           p_is_recurring: boolean;
           p_recurrence_hours: number | null;
           p_icon?: string | null;
+          p_assigned_to: string;
         };
         Returns: Task;
       };
@@ -167,6 +169,7 @@ export type Database = {
           p_is_recurring: boolean;
           p_recurrence_hours: number | null;
           p_icon?: string | null;
+          p_assigned_to?: string | null;
         };
         Returns: Task;
       };

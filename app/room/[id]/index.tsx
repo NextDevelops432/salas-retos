@@ -39,6 +39,8 @@ export default function RoomDetailScreen() {
     return names.length ? names.join(' o ') : 'otro integrante';
   };
 
+  const nameFor = (userId: string | null) => (userId ? memberNames.get(userId) ?? 'alguien' : null);
+
   const load = useCallback(async () => {
     if (!session || !id) return;
 
@@ -124,7 +126,7 @@ export default function RoomDetailScreen() {
         .select('id', { count: 'exact', head: true })
         .eq('room_id', id)
         .eq('approval_status', 'pending')
-        .neq('last_modified_by', session.user.id),
+        .eq('assigned_to', session.user.id),
       supabase
         .from('rewards')
         .select('id', { count: 'exact', head: true })
@@ -262,7 +264,8 @@ export default function RoomDetailScreen() {
             tasks.map((task) => {
               const due = formatDueIn(task.due_at);
               const isPending = task.approval_status === 'pending';
-              const canReview = isPending && task.last_modified_by !== session?.user.id;
+              const canReview = isPending && task.assigned_to === session?.user.id;
+              const assigneeName = nameFor(task.assigned_to);
               return (
                 <Card key={task.id} style={{ marginBottom: spacing.sm }}>
                   <Link href={{ pathname: '/room/[id]/task/[taskId]', params: { id: id as string, taskId: task.id } }} asChild>
@@ -271,6 +274,11 @@ export default function RoomDetailScreen() {
                         <IconBadge seed={task.id} emoji={task.icon || pickTaskEmoji(task.title)} />
                         <View style={{ flex: 1, marginLeft: spacing.sm }}>
                           <Text style={styles.taskTitle}>{task.title}</Text>
+                          {assigneeName && (
+                            <Text style={styles.assignee}>
+                              {task.assigned_to === session?.user.id ? 'Asignado a ti' : `Asignado a ${assigneeName}`}
+                            </Text>
+                          )}
                           <View style={styles.taskBadges}>
                             <Badge text={due.label} tone={due.overdue ? 'danger' : 'default'} />
                             {isPending && <Badge text="Pendiente de aprobación" tone="warning" />}
@@ -278,10 +286,12 @@ export default function RoomDetailScreen() {
                             {task.myCompletionStatus === 'approved' && <Badge text="Completado ✓" tone="accent" />}
                             {task.myCompletionStatus === 'rejected' && <Badge text="Rechazado" tone="danger" />}
                           </View>
-                          {(isPending || task.myCompletionStatus === 'pending') && (
+                          {isPending && (
+                            <Text style={styles.waitingOn}>Esperando que lo confirme: {assigneeName ?? 'la persona asignada'}</Text>
+                          )}
+                          {task.myCompletionStatus === 'pending' && (
                             <Text style={styles.waitingOn}>
-                              Esperando que lo apruebe:{' '}
-                              {waitingOnFor(isPending ? task.last_modified_by : session?.user.id ?? null)}
+                              Esperando que lo apruebe: {waitingOnFor(session?.user.id ?? null)}
                             </Text>
                           )}
                         </View>
@@ -454,6 +464,7 @@ const styles = StyleSheet.create({
   segmentTextActive: { color: colors.textOnPrimary },
   taskRow: { flexDirection: 'row', alignItems: 'center' },
   taskTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  assignee: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   taskBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   waitingOn: { color: colors.warning, fontSize: 11, fontWeight: '700', marginTop: 6 },
   addRow: { paddingVertical: spacing.md, alignItems: 'center' },

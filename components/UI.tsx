@@ -123,6 +123,36 @@ export function EmojiPicker({
   );
 }
 
+export function MemberPicker({
+  members,
+  value,
+  onChange,
+}: {
+  members: { id: string; username: string }[];
+  value: string | null;
+  onChange: (id: string) => void;
+}) {
+  if (members.length === 0) {
+    return <Text style={{ color: colors.textMuted, fontSize: 13 }}>No hay más integrantes en esta sala todavía.</Text>;
+  }
+  return (
+    <View style={styles.memberRow}>
+      {members.map((m) => {
+        const selected = m.id === value;
+        return (
+          <Pressable
+            key={m.id}
+            style={[styles.memberOption, selected && styles.memberOptionSelected]}
+            onPress={() => onChange(m.id)}
+          >
+            <Text style={[styles.memberOptionText, selected && styles.memberOptionTextSelected]}>{m.username}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View style={styles.empty}>
@@ -206,4 +236,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  memberRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  memberOption: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: colors.surfaceAlt,
+  },
+  memberOptionSelected: { backgroundColor: colors.primary },
+  memberOptionText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
+  memberOptionTextSelected: { color: colors.textOnPrimary },
 });
