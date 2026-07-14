@@ -5,9 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
-import { Badge, Card, EmptyState, IconBadge } from '../../../components/UI';
+import { Badge, Card, DueCountdown, EmptyState, IconBadge } from '../../../components/UI';
 import { colors, radius, shadow, spacing } from '../../../constants/theme';
-import { formatDueIn, pickRewardEmoji, pickTaskEmoji } from '../../../lib/format';
+import { pickRewardEmoji, pickTaskEmoji } from '../../../lib/format';
+import { useIsWideScreen } from '../../../lib/useIsWideScreen';
 import type { Reward, Room, Task, TaskCompletion } from '../../../lib/database.types';
 
 type TabKey = 'tasks' | 'rewards';
@@ -21,6 +22,7 @@ export default function RoomDetailScreen() {
   const { session } = useAuth();
   const { notify, celebrate } = useToast();
   const router = useRouter();
+  const isWide = useIsWideScreen();
 
   const [tab, setTab] = useState<TabKey>('tasks');
   const [room, setRoom] = useState<Room | null>(null);
@@ -210,7 +212,10 @@ export default function RoomDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, isWide && { maxWidth: 1000 }]}
+    >
       <Stack.Screen options={{ title: room?.name ?? 'Sala' }} />
 
       <LinearGradient colors={[colors.bgGradientStart, colors.bgGradientEnd]} style={styles.hero}>
@@ -261,13 +266,13 @@ export default function RoomDetailScreen() {
           {tasks.length === 0 && !loading ? (
             <EmptyState title="No hay retos activos" subtitle="Crea el primer reto para esta sala." />
           ) : (
-            tasks.map((task) => {
-              const due = formatDueIn(task.due_at);
+            <View style={isWide ? styles.grid : undefined}>
+            {tasks.map((task) => {
               const isPending = task.approval_status === 'pending';
               const canReview = isPending && task.assigned_to === session?.user.id;
               const assigneeName = nameFor(task.assigned_to);
               return (
-                <Card key={task.id} style={{ marginBottom: spacing.sm }}>
+                <Card key={task.id} style={[{ marginBottom: spacing.sm }, isWide && styles.gridItem]}>
                   <Link href={{ pathname: '/room/[id]/task/[taskId]', params: { id: id as string, taskId: task.id } }} asChild>
                     <Pressable>
                       <View style={styles.taskRow}>
@@ -280,7 +285,7 @@ export default function RoomDetailScreen() {
                             </Text>
                           )}
                           <View style={styles.taskBadges}>
-                            <Badge text={due.label} tone={due.overdue ? 'danger' : 'default'} />
+                            <DueCountdown dueAt={task.due_at} onExpire={load} />
                             {isPending && <Badge text="Pendiente de aprobación" tone="warning" />}
                             {task.myCompletionStatus === 'pending' && <Badge text="Enviado, esperando revisión" tone="warning" />}
                             {task.myCompletionStatus === 'approved' && <Badge text="Completado ✓" tone="accent" />}
@@ -330,7 +335,8 @@ export default function RoomDetailScreen() {
                   </View>
                 </Card>
               );
-            })
+            })}
+            </View>
           )}
           <Link href={{ pathname: '/room/[id]/create-task', params: { id: id as string } }} asChild>
             <Pressable style={styles.addRow}>
@@ -343,11 +349,12 @@ export default function RoomDetailScreen() {
           {rewards.length === 0 && !loading ? (
             <EmptyState title="No hay recompensas todavía" subtitle="Crea una recompensa para canjear con puntos." />
           ) : (
-            rewards.map((reward) => {
+            <View style={isWide ? styles.grid : undefined}>
+            {rewards.map((reward) => {
               const isPending = reward.approval_status === 'pending';
               const canReview = isPending && reward.last_modified_by !== session?.user.id;
               return (
-                <Card key={reward.id} style={{ marginBottom: spacing.sm }}>
+                <Card key={reward.id} style={[{ marginBottom: spacing.sm }, isWide && styles.gridItem]}>
                   <View style={styles.taskRow}>
                     <IconBadge seed={reward.id} emoji={reward.icon || pickRewardEmoji(reward.title)} />
                     <View style={{ flex: 1, marginLeft: spacing.sm }}>
@@ -421,7 +428,8 @@ export default function RoomDetailScreen() {
                   </View>
                 </Card>
               );
-            })
+            })}
+            </View>
           )}
           <Link href={{ pathname: '/room/[id]/create-reward', params: { id: id as string } }} asChild>
             <Pressable style={styles.addRow}>
@@ -487,4 +495,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   redeemBtnDisabled: { backgroundColor: colors.surfaceAlt },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  gridItem: { width: '48.5%' },
 });

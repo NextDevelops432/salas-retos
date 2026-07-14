@@ -233,7 +233,10 @@ export default function ReviewScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.md }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ padding: spacing.md, maxWidth: 640, width: '100%', alignSelf: 'center' }}
+    >
       <Stack.Screen options={{ title: 'Aprobar' }} />
 
       {items.length === 0 && redemptions.length === 0 && taskProposals.length === 0 && rewardProposals.length === 0 ? (

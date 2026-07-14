@@ -6,7 +6,7 @@ import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { useToast } from '../../../../context/ToastContext';
 import { uploadTaskPhoto } from '../../../../lib/uploadPhoto';
-import { Badge, Button, Card, IconBadge, Input } from '../../../../components/UI';
+import { Badge, Button, Card, DueCountdown, IconBadge, Input } from '../../../../components/UI';
 import { colors, radius, spacing } from '../../../../constants/theme';
 import { formatDueIn, pickTaskEmoji } from '../../../../lib/format';
 import type { Task, TaskCompletion } from '../../../../lib/database.types';
@@ -147,7 +147,10 @@ export default function TaskDetailScreen() {
     (!latest || latest.status === 'rejected');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.md }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ padding: spacing.md, maxWidth: 640, width: '100%', alignSelf: 'center' }}
+    >
       <Stack.Screen options={{ title: task.title }} />
 
       <Card>
@@ -161,7 +164,7 @@ export default function TaskDetailScreen() {
           <Text style={styles.assignee}>{isMine ? 'Asignado a ti' : `Asignado a ${assigneeName}`}</Text>
         ) : null}
         <View style={{ height: spacing.sm }} />
-        <Badge text={due.label} tone={due.overdue ? 'danger' : 'default'} />
+        <DueCountdown dueAt={task.due_at} onExpire={load} />
         {task.is_recurring ? (
           <View style={{ marginTop: 6 }}>
             <Badge text="Reto recurrente" tone="accent" />

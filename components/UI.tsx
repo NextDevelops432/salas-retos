@@ -1,5 +1,7 @@
+import { useEffect, useReducer, useRef } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps } from 'react-native';
 import { colors, paletteFor, radius, shadow, spacing } from '../constants/theme';
+import { formatDueIn } from '../lib/format';
 
 export function IconBadge({ seed, emoji, size = 44 }: { seed: string; emoji: string; size?: number }) {
   const { bg } = paletteFor(seed);
@@ -71,6 +73,10 @@ export function Card({ children, style }: { children: React.ReactNode; style?: a
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
+export function CardGrid({ children }: { children: React.ReactNode }) {
+  return <View style={styles.cardGrid}>{children}</View>;
+}
+
 export function Badge({ text, tone = 'default' }: { text: string; tone?: 'default' | 'points' | 'warning' | 'danger' | 'accent' }) {
   const map = {
     default: { bg: colors.surfaceAlt, fg: colors.textMuted },
@@ -87,6 +93,48 @@ export function Badge({ text, tone = 'default' }: { text: string; tone?: 'defaul
   );
 }
 
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+/** Cuenta regresiva en vivo (segundo a segundo cuando falta menos de 1 día). */
+export function DueCountdown({ dueAt, onExpire }: { dueAt: string | null; onExpire?: () => void }) {
+  const [, tick] = useReducer((x) => x + 1, 0);
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    firedRef.current = false;
+    if (!dueAt) return;
+    const id = setInterval(() => tick(), 1000);
+    return () => clearInterval(id);
+  }, [dueAt]);
+
+  if (!dueAt) return <Badge text="Sin vencimiento" tone="default" />;
+
+  const remainingMs = new Date(dueAt).getTime() - Date.now();
+
+  if (remainingMs <= 0) {
+    if (!firedRef.current) {
+      firedRef.current = true;
+      onExpire?.();
+    }
+    return <Badge text="Vencida" tone="danger" />;
+  }
+
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  if (totalSeconds < 24 * 3600) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    const label = h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
+    return <Badge text={`Vence en ${label}`} tone={totalSeconds < 3600 ? 'danger' : 'warning'} />;
+  }
+
+  return <Badge text={formatDueIn(dueAt).label} tone="default" />;
+}
+
+const EMOJI_ONLY = /[a-zA-Z0-9]/g;
+
 export function EmojiPicker({
   value,
   onChange,
@@ -102,19 +150,31 @@ export function EmojiPicker({
     <View>
       <View style={styles.emojiRow}>
         <View style={styles.emojiPreview}>
-          <Text style={{ fontSize: 26 }}>{value || fallback}</Text>
+          <Text style={{ fontSize: 28 }}>{value || fallback}</Text>
         </View>
-        <Input
-          style={{ flex: 1 }}
-          placeholder="Escribe o pega cualquier emoji"
-          value={value}
-          onChangeText={(t) => onChange(Array.from(t).slice(-2).join(''))}
-        />
+        <View style={{ flex: 1 }}>
+          <Input
+            placeholder="Pega tu propio emoji aquí"
+            value={value}
+            onChangeText={(t) => onChange(Array.from(t.replace(EMOJI_ONLY, '')).slice(-2).join(''))}
+          />
+        </View>
+        {value ? (
+          <Pressable style={styles.emojiClear} onPress={() => onChange('')}>
+            <Text style={{ color: colors.textMuted, fontWeight: '700' }}>✕</Text>
+          </Pressable>
+        ) : null}
       </View>
+      <View style={{ height: spacing.sm }} />
+      <Text style={styles.emojiHint}>O elige uno rápido:</Text>
       <View style={{ height: spacing.xs }} />
       <View style={styles.emojiGrid}>
         {quickPicks.map((e) => (
-          <Pressable key={e} style={styles.emojiOption} onPress={() => onChange(e)}>
+          <Pressable
+            key={e}
+            style={[styles.emojiOption, value === e && styles.emojiOptionSelected]}
+            onPress={() => onChange(e)}
+          >
             <Text style={{ fontSize: 20 }}>{e}</Text>
           </Pressable>
         ))}
@@ -191,6 +251,11 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     ...shadow,
   },
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   badge: {
     borderRadius: radius.pill,
     paddingHorizontal: 10,
@@ -220,22 +285,32 @@ const styles = StyleSheet.create({
   },
   emojiRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   emojiPreview: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  emojiOption: {
-    width: 40,
-    height: 40,
+  emojiClear: {
+    width: 36,
+    height: 36,
     borderRadius: radius.sm,
     backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emojiHint: { color: colors.textMuted, fontSize: 12 },
+  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  emojiOption: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiOptionSelected: { backgroundColor: colors.primary },
   memberRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   memberOption: {
     borderRadius: radius.pill,

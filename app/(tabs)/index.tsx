@@ -4,8 +4,9 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Card, EmptyState, IconBadge } from '../../components/UI';
+import { Button, Card, EmptyState, IconBadge } from '../../components/UI';
 import { colors, radius, shadow, spacing } from '../../constants/theme';
+import { useIsWideScreen } from '../../lib/useIsWideScreen';
 import type { Room } from '../../lib/database.types';
 
 interface RoomListItem extends Room {
@@ -16,6 +17,7 @@ interface RoomListItem extends Room {
 export default function RoomsScreen() {
   const { session, profile } = useAuth();
   const router = useRouter();
+  const isWide = useIsWideScreen();
   const [rooms, setRooms] = useState<RoomListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,13 +76,18 @@ export default function RoomsScreen() {
     }, [load])
   );
 
+  const numColumns = isWide ? 3 : 1;
+
   return (
     <View style={styles.container}>
       <FlatList
+        key={numColumns}
         data={rooms}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: spacing.md } : undefined}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, rooms.length === 0 && { flex: 1 }]}
-        style={{ width: '100%', maxWidth: 640, alignSelf: 'center' }}
+        style={{ width: '100%', maxWidth: isWide ? 1100 : 640, alignSelf: 'center' }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -93,8 +100,13 @@ export default function RoomsScreen() {
         }
         ListHeaderComponent={
           <LinearGradient colors={[colors.bgGradientStart, colors.bgGradientEnd]} style={styles.hero}>
-            <Text style={styles.heroGreeting}>¡Hola, {profile?.username?.split('_')[0] ?? ''}! 👋</Text>
-            <Text style={styles.heroTitle}>Tus salas</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroGreeting}>¡Hola, {profile?.username?.split('_')[0] ?? ''}! 👋</Text>
+              <Text style={styles.heroTitle}>Tus salas</Text>
+            </View>
+            {isWide && (
+              <Button title="+ Nueva sala" variant="secondary" onPress={() => router.push('/room/new')} />
+            )}
           </LinearGradient>
         }
         ListEmptyComponent={
@@ -107,7 +119,7 @@ export default function RoomsScreen() {
         }
         renderItem={({ item }) => (
           <Link href={{ pathname: '/room/[id]', params: { id: item.id } }} asChild>
-            <Pressable>
+            <Pressable style={numColumns > 1 ? { flex: 1 } : undefined}>
               <Card style={{ marginBottom: spacing.sm }}>
                 <View style={styles.roomRow}>
                   <IconBadge seed={item.id} emoji="🏠" />
@@ -128,9 +140,11 @@ export default function RoomsScreen() {
         )}
       />
 
-      <Pressable style={styles.fab} onPress={() => router.push('/room/new')}>
-        <Text style={styles.fabText}>+</Text>
-      </Pressable>
+      {!isWide && (
+        <Pressable style={styles.fab} onPress={() => router.push('/room/new')}>
+          <Text style={styles.fabText}>+</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -142,6 +156,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   heroGreeting: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' },
   heroTitle: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', marginTop: 4 },

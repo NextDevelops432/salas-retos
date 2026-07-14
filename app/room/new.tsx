@@ -124,7 +124,7 @@ export default function NewRoomScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.md },
+  container: { padding: spacing.md, maxWidth: 560, width: '100%', alignSelf: 'center' },
   segment: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceAlt,

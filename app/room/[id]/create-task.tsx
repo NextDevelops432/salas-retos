@@ -237,7 +237,7 @@ export default function CreateTaskScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.md },
+  container: { padding: spacing.md, maxWidth: 560, width: '100%', alignSelf: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
   notice: { color: colors.textMuted, fontSize: 12 },
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
