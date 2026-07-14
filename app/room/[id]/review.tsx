@@ -13,21 +13,38 @@ interface ReviewItem extends TaskCompletion {
   username: string;
 }
 
+interface RedemptionReviewItem {
+  id: string;
+  rewardTitle: string;
+  pointsSpent: number;
+  username: string;
+}
+
 export default function ReviewScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const [items, setItems] = useState<ReviewItem[]>([]);
+  const [redemptions, setRedemptions] = useState<RedemptionReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!id) return;
-    const { data } = await supabase
-      .from('task_completions')
-      .select('*, task:tasks(title, points, created_by), user:profiles!task_completions_user_id_fkey(username)')
-      .eq('room_id', id)
-      .eq('status', 'pending')
-      .order('completed_at', { ascending: true });
+    if (!id || !session) return;
+    const [{ data }, { data: redemptionRows }] = await Promise.all([
+      supabase
+        .from('task_completions')
+        .select('*, task:tasks(title, points, created_by), user:profiles!task_completions_user_id_fkey(username)')
+        .eq('room_id', id)
+        .eq('status', 'pending')
+        .order('completed_at', { ascending: true }),
+      supabase
+        .from('reward_redemptions')
+        .select('*, reward:rewards(title), user:profiles!reward_redemptions_user_id_fkey(username)')
+        .eq('room_id', id)
+        .eq('status', 'pending')
+        .neq('user_id', session.user.id)
+        .order('redeemed_at', { ascending: true }),
+    ]);
 
     setItems(
       (data ?? []).map((row: any) => ({
@@ -37,8 +54,16 @@ export default function ReviewScreen() {
         username: row.user?.username ?? 'Usuario',
       }))
     );
+    setRedemptions(
+      (redemptionRows ?? []).map((row: any) => ({
+        id: row.id,
+        rewardTitle: row.reward?.title ?? 'Recompensa',
+        pointsSpent: row.points_spent,
+        username: row.user?.username ?? 'Usuario',
+      }))
+    );
     setLoading(false);
-  }, [id]);
+  }, [id, session]);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,6 +86,21 @@ export default function ReviewScreen() {
     load();
   };
 
+  const reviewRedemption = async (redemptionId: string, approve: boolean) => {
+    setBusyId(redemptionId);
+    const { error } = await supabase.rpc('review_redemption', {
+      p_redemption_id: redemptionId,
+      p_approve: approve,
+      p_review_note: null,
+    });
+    setBusyId(null);
+    if (error) {
+      Alert.alert('No se pudo procesar', error.message);
+      return;
+    }
+    load();
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -71,11 +111,47 @@ export default function ReviewScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.md }}>
-      <Stack.Screen options={{ title: 'Aprobar evidencias' }} />
+      <Stack.Screen options={{ title: 'Aprobar' }} />
 
-      {items.length === 0 ? (
-        <EmptyState title="No hay nada pendiente" subtitle="Todas las evidencias fueron revisadas." />
-      ) : (
+      {items.length === 0 && redemptions.length === 0 ? (
+        <EmptyState title="No hay nada pendiente" subtitle="Todo fue revisado." />
+      ) : null}
+
+      {redemptions.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Canjes de recompensas</Text>
+          {redemptions.map((r) => (
+            <Card key={r.id} style={{ marginBottom: spacing.md }}>
+              <View style={styles.headerRow}>
+                <Text style={styles.taskTitle}>{r.rewardTitle}</Text>
+                <Text style={styles.points}>{r.pointsSpent} pts</Text>
+              </View>
+              <Text style={styles.username}>Solicitado por {r.username}</Text>
+              <View style={{ height: spacing.sm }} />
+              <View style={styles.buttonsRow}>
+                <Button
+                  title="Rechazar"
+                  variant="danger"
+                  onPress={() => reviewRedemption(r.id, false)}
+                  loading={busyId === r.id}
+                  style={{ flex: 1 }}
+                />
+                <View style={{ width: spacing.sm }} />
+                <Button
+                  title="Aprobar"
+                  onPress={() => reviewRedemption(r.id, true)}
+                  loading={busyId === r.id}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </Card>
+          ))}
+          <View style={{ height: spacing.md }} />
+        </>
+      )}
+
+      {items.length > 0 && <Text style={styles.sectionTitle}>Evidencias de retos</Text>}
+      {items.length > 0 &&
         items.map((item) => (
           <Card key={item.id} style={{ marginBottom: spacing.md }}>
             <View style={styles.headerRow}>
@@ -105,8 +181,7 @@ export default function ReviewScreen() {
               />
             </View>
           </Card>
-        ))
-      )}
+        ))}
       <View style={{ height: spacing.xl }} />
     </ScrollView>
   );
@@ -115,6 +190,7 @@ export default function ReviewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  sectionTitle: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginBottom: spacing.sm, textTransform: 'uppercase' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   taskTitle: { color: colors.text, fontSize: 16, fontWeight: '700', flex: 1 },
   points: { color: colors.points, fontWeight: '700' },

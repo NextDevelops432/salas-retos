@@ -1,5 +1,5 @@
 export type TaskCompletionStatus = 'pending' | 'approved' | 'rejected';
-export type RedemptionStatus = 'pending' | 'fulfilled' | 'cancelled';
+export type RedemptionStatus = 'pending' | 'approved' | 'rejected';
 export type RoomRole = 'owner' | 'member';
 
 export type Profile = {
@@ -75,8 +75,9 @@ export type RewardRedemption = {
   points_spent: number;
   status: RedemptionStatus;
   redeemed_at: string;
-  fulfilled_by: string | null;
-  fulfilled_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
 };
 
 export type RoomMemberPoints = {
@@ -128,7 +129,10 @@ export type Database = {
         Returns: TaskCompletion;
       };
       redeem_reward: { Args: { p_reward_id: string }; Returns: RewardRedemption };
-      fulfill_redemption: { Args: { p_redemption_id: string }; Returns: RewardRedemption };
+      review_redemption: {
+        Args: { p_redemption_id: string; p_approve: boolean; p_review_note?: string | null };
+        Returns: RewardRedemption;
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

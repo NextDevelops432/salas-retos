@@ -14,13 +14,6 @@ interface TaskWithMyStatus extends Task {
   myCompletionStatus: TaskCompletion['status'] | null;
 }
 
-interface PendingRedemption {
-  id: string;
-  rewardTitle: string;
-  pointsSpent: number;
-  username: string;
-}
-
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
@@ -33,8 +26,6 @@ export default function RoomDetailScreen() {
   const [tasks, setTasks] = useState<TaskWithMyStatus[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
-  const [pendingRedemptions, setPendingRedemptions] = useState<PendingRedemption[]>([]);
-  const [fulfillingId, setFulfillingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -93,31 +84,20 @@ export default function RoomDetailScreen() {
       .order('cost_points', { ascending: true });
     setRewards(rewardRows ?? []);
 
-    const { count } = await supabase
-      .from('task_completions')
-      .select('id', { count: 'exact', head: true })
-      .eq('room_id', id)
-      .eq('status', 'pending');
-    setPendingReviewCount(count ?? 0);
-
-    if (membership?.role === 'owner') {
-      const { data: redemptionRows } = await supabase
+    const [{ count: completionsCount }, { count: redemptionsCount }] = await Promise.all([
+      supabase
+        .from('task_completions')
+        .select('id', { count: 'exact', head: true })
+        .eq('room_id', id)
+        .eq('status', 'pending'),
+      supabase
         .from('reward_redemptions')
-        .select('*, reward:rewards(title), user:profiles!reward_redemptions_user_id_fkey(username)')
+        .select('id', { count: 'exact', head: true })
         .eq('room_id', id)
         .eq('status', 'pending')
-        .order('redeemed_at', { ascending: true });
-      setPendingRedemptions(
-        (redemptionRows ?? []).map((r: any) => ({
-          id: r.id,
-          rewardTitle: r.reward?.title ?? 'Recompensa',
-          pointsSpent: r.points_spent,
-          username: r.user?.username ?? 'Usuario',
-        }))
-      );
-    } else {
-      setPendingRedemptions([]);
-    }
+        .neq('user_id', session.user.id),
+    ]);
+    setPendingReviewCount((completionsCount ?? 0) + (redemptionsCount ?? 0));
 
     setLoading(false);
   }, [session, id]);
@@ -134,18 +114,10 @@ export default function RoomDetailScreen() {
       Alert.alert('No se pudo canjear', error.message);
       return;
     }
-    Alert.alert('¡Canjeado!', `Canjeaste "${reward.title}" por ${reward.cost_points} pts.`);
-    load();
-  };
-
-  const handleFulfill = async (redemptionId: string) => {
-    setFulfillingId(redemptionId);
-    const { error } = await supabase.rpc('fulfill_redemption', { p_redemption_id: redemptionId });
-    setFulfillingId(null);
-    if (error) {
-      Alert.alert('No se pudo entregar', error.message);
-      return;
-    }
+    Alert.alert(
+      'Solicitud enviada',
+      `Tu canje de "${reward.title}" por ${reward.cost_points} pts queda pendiente hasta que otro integrante de la sala lo apruebe.`
+    );
     load();
   };
 
@@ -190,7 +162,7 @@ export default function RoomDetailScreen() {
           <Pressable>
             <Card style={{ marginTop: spacing.md, borderColor: colors.warning }}>
               <Text style={styles.reviewBanner}>
-                📋 {pendingReviewCount} {pendingReviewCount === 1 ? 'evidencia pendiente' : 'evidencias pendientes'} de aprobar
+                📋 {pendingReviewCount} {pendingReviewCount === 1 ? 'cosa pendiente' : 'cosas pendientes'} de aprobar
               </Text>
             </Card>
           </Pressable>
@@ -247,28 +219,6 @@ export default function RoomDetailScreen() {
         </>
       ) : (
         <>
-          {pendingRedemptions.length > 0 && (
-            <>
-              <Text style={styles.subheading}>Canjes pendientes de entregar</Text>
-              {pendingRedemptions.map((r) => (
-                <Card key={r.id} style={{ marginBottom: spacing.sm, borderColor: colors.warning }}>
-                  <View style={styles.taskRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.taskTitle}>{r.rewardTitle}</Text>
-                      <Text style={styles.roomDesc}>
-                        {r.username} · {r.pointsSpent} pts
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={{ height: spacing.sm }} />
-                  <Pressable style={styles.redeemBtn} onPress={() => handleFulfill(r.id)} disabled={fulfillingId === r.id}>
-                    <Text style={styles.redeemBtnText}>{fulfillingId === r.id ? 'Entregando…' : 'Marcar como entregado'}</Text>
-                  </Pressable>
-                </Card>
-              ))}
-              <View style={{ height: spacing.md }} />
-            </>
-          )}
           {rewards.length === 0 && !loading ? (
             <EmptyState title="No hay recompensas todavía" subtitle="Crea una recompensa para canjear con puntos." />
           ) : (
