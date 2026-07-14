@@ -30,6 +30,14 @@ export default function RoomDetailScreen() {
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [memberNames, setMemberNames] = useState<Map<string, string>>(new Map());
+
+  const waitingOnFor = (excludeUserId: string | null) => {
+    const names = Array.from(memberNames.entries())
+      .filter(([uid]) => uid !== excludeUserId)
+      .map(([, name]) => name);
+    return names.length ? names.join(' o ') : 'otro integrante';
+  };
 
   const load = useCallback(async () => {
     if (!session || !id) return;
@@ -46,6 +54,13 @@ export default function RoomDetailScreen() {
 
     setRoom(roomData ?? null);
     setPointsBalance(pointsRow?.points_balance ?? 0);
+
+    const { data: memberRows } = await supabase.from('room_members').select('user_id').eq('room_id', id);
+    const memberIds = (memberRows ?? []).map((m) => m.user_id);
+    if (memberIds.length) {
+      const { data: memberProfiles } = await supabase.from('profiles').select('id, username').in('id', memberIds);
+      setMemberNames(new Map((memberProfiles ?? []).map((p) => [p.id, p.username])));
+    }
 
     const { data: taskRows } = await supabase
       .from('tasks')
@@ -263,6 +278,12 @@ export default function RoomDetailScreen() {
                             {task.myCompletionStatus === 'approved' && <Badge text="Completado ✓" tone="accent" />}
                             {task.myCompletionStatus === 'rejected' && <Badge text="Rechazado" tone="danger" />}
                           </View>
+                          {(isPending || task.myCompletionStatus === 'pending') && (
+                            <Text style={styles.waitingOn}>
+                              Esperando que lo apruebe:{' '}
+                              {waitingOnFor(isPending ? task.last_modified_by : session?.user.id ?? null)}
+                            </Text>
+                          )}
                         </View>
                         <Badge text={`${task.points} pts`} tone="points" />
                       </View>
@@ -325,6 +346,9 @@ export default function RoomDetailScreen() {
                       {isPending && (
                         <View style={{ marginTop: 6 }}>
                           <Badge text="Pendiente de aprobación" tone="warning" />
+                          <Text style={styles.waitingOn}>
+                            Esperando que lo apruebe: {waitingOnFor(reward.last_modified_by)}
+                          </Text>
                         </View>
                       )}
                     </View>
@@ -431,6 +455,7 @@ const styles = StyleSheet.create({
   taskRow: { flexDirection: 'row', alignItems: 'center' },
   taskTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
   taskBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  waitingOn: { color: colors.warning, fontSize: 11, fontWeight: '700', marginTop: 6 },
   addRow: { paddingVertical: spacing.md, alignItems: 'center' },
   addText: { color: colors.primary, fontWeight: '700' },
   buttonsRow: { flexDirection: 'row', alignItems: 'center' },

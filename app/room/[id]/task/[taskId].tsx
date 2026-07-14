@@ -18,6 +18,7 @@ export default function TaskDetailScreen() {
 
   const [task, setTask] = useState<Task | null>(null);
   const [myCompletions, setMyCompletions] = useState<TaskCompletion[]>([]);
+  const [otherMembers, setOtherMembers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -38,8 +39,26 @@ export default function TaskDetailScreen() {
     ]);
     setTask(taskRow ?? null);
     setMyCompletions(completions ?? []);
+
+    if (taskRow) {
+      const { data: memberRows } = await supabase
+        .from('room_members')
+        .select('user_id')
+        .eq('room_id', taskRow.room_id)
+        .neq('user_id', session.user.id);
+      const otherIds = (memberRows ?? []).map((m) => m.user_id);
+      if (otherIds.length) {
+        const { data: memberProfiles } = await supabase.from('profiles').select('username').in('id', otherIds);
+        setOtherMembers((memberProfiles ?? []).map((p) => p.username));
+      } else {
+        setOtherMembers([]);
+      }
+    }
+
     setLoading(false);
   }, [session, taskId]);
+
+  const waitingOnLabel = otherMembers.length ? otherMembers.join(' o ') : 'otro integrante de la sala';
 
   useFocusEffect(
     useCallback(() => {
@@ -138,6 +157,7 @@ export default function TaskDetailScreen() {
         {task.approval_status === 'pending' ? (
           <View style={{ marginTop: 6 }}>
             <Badge text="Pendiente de aprobación de la sala" tone="warning" />
+            <Text style={styles.waitingOn}>Esperando que lo apruebe: {waitingOnLabel}</Text>
           </View>
         ) : null}
       </Card>
@@ -153,6 +173,9 @@ export default function TaskDetailScreen() {
             <Image source={{ uri: latest.photo_url }} style={styles.photoPreview} resizeMode="cover" />
           ) : null}
           {latest.note ? <Text style={styles.note}>"{latest.note}"</Text> : null}
+          {latest.status === 'pending' ? (
+            <Text style={styles.waitingOn}>Esperando que lo apruebe: {waitingOnLabel}</Text>
+          ) : null}
           {latest.status === 'approved' ? (
             <Text style={styles.pointsAwarded}>+{latest.points_awarded} puntos otorgados</Text>
           ) : null}
@@ -212,6 +235,7 @@ const styles = StyleSheet.create({
   photoButtons: { flexDirection: 'row' },
   photoPreview: { width: '100%', height: 200, borderRadius: radius.md, marginTop: spacing.sm, marginBottom: spacing.sm },
   note: { color: colors.textMuted, fontStyle: 'italic', marginTop: spacing.sm },
+  waitingOn: { color: colors.warning, fontSize: 12, fontWeight: '700', marginTop: spacing.xs },
   pointsAwarded: { color: colors.points, fontWeight: '700', marginTop: spacing.sm },
   error: { color: colors.danger, marginTop: spacing.sm },
 });

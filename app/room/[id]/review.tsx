@@ -41,50 +41,90 @@ export default function ReviewScreen() {
 
   const load = useCallback(async () => {
     if (!id || !session) return;
-    const [{ data }, { data: redemptionRows }, { data: taskRows }, { data: rewardRows }] = await Promise.all([
+
+    const [
+      { data: completionRows, error: completionsErr },
+      { data: redemptionRows, error: redemptionsErr },
+      { data: taskRows, error: tasksErr },
+      { data: rewardRows, error: rewardsErr },
+    ] = await Promise.all([
       supabase
         .from('task_completions')
-        .select('*, task:tasks(title, points, created_by), user:profiles!task_completions_user_id_fkey(username)')
+        .select('id, task_id, room_id, user_id, photo_url, note, status, points_awarded, completed_at, reviewed_by, reviewed_at, review_note')
         .eq('room_id', id)
         .eq('status', 'pending')
         .order('completed_at', { ascending: true }),
       supabase
         .from('reward_redemptions')
-        .select('*, reward:rewards(title), user:profiles!reward_redemptions_user_id_fkey(username)')
+        .select('id, reward_id, points_spent, user_id')
         .eq('room_id', id)
         .eq('status', 'pending')
         .neq('user_id', session.user.id)
         .order('redeemed_at', { ascending: true }),
       supabase
         .from('tasks')
-        .select('id, title, points, last_modified_by, user:profiles!tasks_last_modified_by_fkey(username)')
+        .select('id, title, points, last_modified_by')
         .eq('room_id', id)
         .eq('approval_status', 'pending')
         .neq('last_modified_by', session.user.id)
         .order('created_at', { ascending: true }),
       supabase
         .from('rewards')
-        .select('id, title, cost_points, last_modified_by, user:profiles!rewards_last_modified_by_fkey(username)')
+        .select('id, title, cost_points, last_modified_by')
         .eq('room_id', id)
         .eq('approval_status', 'pending')
         .neq('last_modified_by', session.user.id)
         .order('created_at', { ascending: true }),
     ]);
 
+    const firstError = completionsErr || redemptionsErr || tasksErr || rewardsErr;
+    if (firstError) {
+      notify({ tone: 'error', title: 'No se pudo cargar', message: firstError.message });
+      setLoading(false);
+      return;
+    }
+
+    // Los datos relacionados (titulos de retos/recompensas, nombres de
+    // usuario) se piden aparte en vez de con joins anidados: los joins
+    // anidados de PostgREST descartan la fila completa si la sub-consulta
+    // no puede resolverse, y eso escondia evidencias/canjes pendientes.
+    const taskIds = Array.from(new Set((completionRows ?? []).map((r) => r.task_id)));
+    const rewardIds = Array.from(new Set((redemptionRows ?? []).map((r) => r.reward_id)));
+    const userIds = Array.from(
+      new Set(
+        [
+          ...(completionRows ?? []).map((r) => r.user_id),
+          ...(redemptionRows ?? []).map((r) => r.user_id),
+          ...(taskRows ?? []).map((r) => r.last_modified_by),
+          ...(rewardRows ?? []).map((r) => r.last_modified_by),
+        ].filter((v): v is string => !!v)
+      )
+    );
+
+    const [{ data: relatedTasks }, { data: relatedRewards }, { data: relatedProfiles }] = await Promise.all([
+      taskIds.length ? supabase.from('tasks').select('id, title, points').in('id', taskIds) : Promise.resolve({ data: [] }),
+      rewardIds.length ? supabase.from('rewards').select('id, title').in('id', rewardIds) : Promise.resolve({ data: [] }),
+      userIds.length ? supabase.from('profiles').select('id, username').in('id', userIds) : Promise.resolve({ data: [] }),
+    ]);
+
+    const taskById = new Map((relatedTasks ?? []).map((t: any) => [t.id, t]));
+    const rewardById = new Map((relatedRewards ?? []).map((r: any) => [r.id, r]));
+    const usernameById = new Map((relatedProfiles ?? []).map((p: any) => [p.id, p.username]));
+
     setItems(
-      (data ?? []).map((row: any) => ({
+      (completionRows ?? []).map((row: any) => ({
         ...row,
-        taskTitle: row.task?.title ?? 'Reto',
-        taskPoints: row.task?.points ?? 0,
-        username: row.user?.username ?? 'Usuario',
+        taskTitle: taskById.get(row.task_id)?.title ?? 'Reto',
+        taskPoints: taskById.get(row.task_id)?.points ?? 0,
+        username: usernameById.get(row.user_id) ?? 'Usuario',
       }))
     );
     setRedemptions(
       (redemptionRows ?? []).map((row: any) => ({
         id: row.id,
-        rewardTitle: row.reward?.title ?? 'Recompensa',
+        rewardTitle: rewardById.get(row.reward_id)?.title ?? 'Recompensa',
         pointsSpent: row.points_spent,
-        username: row.user?.username ?? 'Usuario',
+        username: usernameById.get(row.user_id) ?? 'Usuario',
       }))
     );
     setTaskProposals(
@@ -92,7 +132,7 @@ export default function ReviewScreen() {
         id: row.id,
         title: row.title,
         points: row.points,
-        username: row.user?.username ?? 'Usuario',
+        username: usernameById.get(row.last_modified_by) ?? 'Usuario',
       }))
     );
     setRewardProposals(
@@ -100,7 +140,7 @@ export default function ReviewScreen() {
         id: row.id,
         title: row.title,
         points: row.cost_points,
-        username: row.user?.username ?? 'Usuario',
+        username: usernameById.get(row.last_modified_by) ?? 'Usuario',
       }))
     );
     setLoading(false);
