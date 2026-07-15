@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, radius, spacing } from '../constants/theme';
+import { colors, radius, shadow, spacing } from '../constants/theme';
 
 const COLLAPSE_KEY = 'retame:sidebarCollapsed';
 const EXPANDED_WIDTH = 224;
@@ -119,45 +119,85 @@ const styles = StyleSheet.create({
   itemLabelActive: { color: colors.primary },
 });
 
-export function MobileTabBar({ state, descriptors, navigation }: any) {
+function TabItem({ route, index, state, descriptors, navigation }: any) {
+  const { options } = descriptors[route.key];
+  const focused = state.index === index;
+  const label = typeof options.tabBarLabel === 'string' ? options.tabBarLabel : options.title ?? '';
+
+  const onPress = () => {
+    const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+    if (!focused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
   return (
-    <View style={mobileStyles.container}>
-      {state.routes.map((route: any, index: number) => {
-        const { options } = descriptors[route.key];
-        const focused = state.index === index;
-        const label = typeof options.tabBarLabel === 'string' ? options.tabBarLabel : options.title ?? '';
+    <Pressable onPress={onPress} style={mobileStyles.item}>
+      {options.tabBarIcon?.({ focused, color: focused ? colors.primary : colors.textMuted, size: 20 })}
+      <Text style={[mobileStyles.label, focused && mobileStyles.labelActive]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
-        const onPress = () => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!focused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
+export function MobileTabBar({ state, descriptors, navigation }: any) {
+  const router = useRouter();
+  const routes = state.routes as any[];
+  const firstHalf = routes.slice(0, 2);
+  const secondHalf = routes.slice(2);
 
-        return (
-          <Pressable key={route.key} onPress={onPress} style={mobileStyles.item}>
-            {options.tabBarIcon?.({ focused, color: focused ? colors.primary : colors.textMuted, size: 20 })}
-            <Text style={[mobileStyles.label, focused && mobileStyles.labelActive]} numberOfLines={1}>
-              {label}
-            </Text>
+  return (
+    <View style={mobileStyles.wrap}>
+      <View style={mobileStyles.container}>
+        {firstHalf.map((route, i) => (
+          <TabItem key={route.key} route={route} index={i} state={state} descriptors={descriptors} navigation={navigation} />
+        ))}
+
+        <View style={mobileStyles.fabSlot}>
+          <Pressable style={mobileStyles.fab} onPress={() => router.push('/room/new')}>
+            <Text style={mobileStyles.fabIcon}>+</Text>
           </Pressable>
-        );
-      })}
+        </View>
+
+        {secondHalf.map((route, i) => (
+          <TabItem
+            key={route.key}
+            route={route}
+            index={i + 2}
+            state={state}
+            descriptors={descriptors}
+            navigation={navigation}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
 const mobileStyles = StyleSheet.create({
+  wrap: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm, backgroundColor: colors.bg },
   container: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderRadius: radius.lg,
     height: 64,
-    paddingBottom: 10,
-    paddingTop: 8,
+    ...shadow,
   },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
   label: { color: colors.textMuted, fontWeight: '700', fontSize: 11 },
   labelActive: { color: colors.primary },
+  fabSlot: { width: 56, alignItems: 'center', justifyContent: 'center' },
+  fab: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -24,
+    ...shadow,
+  },
+  fabIcon: { color: '#FFFFFF', fontSize: 26, fontWeight: '700', marginTop: -2 },
 });

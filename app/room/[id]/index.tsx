@@ -301,16 +301,35 @@ export default function RoomDetailScreen() {
                 <Card key={task.id} style={[{ marginBottom: spacing.sm }, isWide && styles.gridItem]}>
                   <Link href={{ pathname: '/room/[id]/task/[taskId]', params: { id: id as string, taskId: task.id } }} asChild>
                     <Pressable>
-                      <View style={styles.tileHeadRow}>
-                        <IconBadge seed={task.id} emoji={task.icon || pickTaskEmoji(task.title)} size={48} />
-                        <Badge text={`${task.points}`} tone="points" />
-                      </View>
-                      <View style={{ height: spacing.sm }} />
-                      <Text style={styles.taskTitle}>{task.title}</Text>
-                      {assigneeName && (
-                        <Text style={styles.assignee}>
-                          {task.assigned_to === session?.user.id ? 'Asignado a ti' : `Asignado a ${assigneeName}`}
-                        </Text>
+                      {isWide ? (
+                        <View style={styles.tileHeadRow}>
+                          <IconBadge seed={task.id} emoji={task.icon || pickTaskEmoji(task.title)} size={48} />
+                          <Badge text={`${task.points}`} tone="points" />
+                        </View>
+                      ) : (
+                        <View style={styles.listHeadRow}>
+                          <IconBadge seed={task.id} emoji={task.icon || pickTaskEmoji(task.title)} size={48} variant="vivid" />
+                          <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                            <Text style={styles.taskTitle}>{task.title}</Text>
+                            {assigneeName && (
+                              <Text style={styles.assignee}>
+                                {task.assigned_to === session?.user.id ? 'Asignado a ti' : `Asignado a ${assigneeName}`}
+                              </Text>
+                            )}
+                          </View>
+                          <Text style={styles.listPoints}>{task.points} ⭐</Text>
+                        </View>
+                      )}
+                      {isWide && (
+                        <>
+                          <View style={{ height: spacing.sm }} />
+                          <Text style={styles.taskTitle}>{task.title}</Text>
+                          {assigneeName && (
+                            <Text style={styles.assignee}>
+                              {task.assigned_to === session?.user.id ? 'Asignado a ti' : `Asignado a ${assigneeName}`}
+                            </Text>
+                          )}
+                        </>
                       )}
                       <View style={styles.taskBadges}>
                         <DueCountdown dueAt={task.due_at} onExpire={load} />
@@ -380,12 +399,24 @@ export default function RoomDetailScreen() {
               const canReview = isPending && reward.last_modified_by !== session?.user.id;
               return (
                 <Card key={reward.id} style={[{ marginBottom: spacing.sm }, isWide && styles.gridItem]}>
-                  <View style={styles.tileHeadRow}>
-                    <IconBadge seed={reward.id} emoji={reward.icon || pickRewardEmoji(reward.title)} size={48} />
-                    <Badge text={`${reward.cost_points}`} tone="points" />
-                  </View>
-                  <View style={{ height: spacing.sm }} />
-                  <Text style={styles.taskTitle}>{reward.title}</Text>
+                  {isWide ? (
+                    <>
+                      <View style={styles.tileHeadRow}>
+                        <IconBadge seed={reward.id} emoji={reward.icon || pickRewardEmoji(reward.title)} size={48} />
+                        <Badge text={`${reward.cost_points}`} tone="points" />
+                      </View>
+                      <View style={{ height: spacing.sm }} />
+                      <Text style={styles.taskTitle}>{reward.title}</Text>
+                    </>
+                  ) : (
+                    <View style={styles.listHeadRow}>
+                      <IconBadge seed={reward.id} emoji={reward.icon || pickRewardEmoji(reward.title)} size={48} variant="vivid" />
+                      <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                        <Text style={styles.taskTitle}>{reward.title}</Text>
+                      </View>
+                      <Text style={styles.listPoints}>{reward.cost_points} ⭐</Text>
+                    </View>
+                  )}
                   {reward.description ? <Text style={styles.roomDescCard}>{reward.description}</Text> : null}
                   {isPending && (
                     <View style={{ marginTop: 6 }}>
@@ -512,6 +543,8 @@ const styles = StyleSheet.create({
   segmentText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
   segmentTextActive: { color: colors.textOnPrimary },
   tileHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  listHeadRow: { flexDirection: 'row', alignItems: 'center' },
+  listPoints: { color: colors.points, fontWeight: '800', fontSize: 15 },
   taskTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
   assignee: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   taskBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },

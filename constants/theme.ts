@@ -37,6 +37,14 @@ export function paletteFor(seed: string) {
   return iconPalette[hash % iconPalette.length];
 }
 
+export const vividPalette = ['#22C55E', '#7C4DFF', '#F59E0B', '#EC4899', '#0EA5E9', '#F43F5E'];
+
+export function vividColorFor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return vividPalette[hash % vividPalette.length];
+}
+
 export const spacing = {
   xs: 4,
   sm: 8,

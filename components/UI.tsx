@@ -1,17 +1,28 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps } from 'react-native';
-import { colors, paletteFor, radius, shadow, spacing } from '../constants/theme';
+import { colors, paletteFor, radius, shadow, spacing, vividColorFor } from '../constants/theme';
 import { formatDueIn } from '../lib/format';
 import { NotificationsBell } from './NotificationsBell';
 
-export function IconBadge({ seed, emoji, size = 44 }: { seed: string; emoji: string; size?: number }) {
-  const { bg } = paletteFor(seed);
+export function IconBadge({
+  seed,
+  emoji,
+  size = 44,
+  variant = 'soft',
+}: {
+  seed: string;
+  emoji: string;
+  size?: number;
+  variant?: 'soft' | 'vivid';
+}) {
+  const bg = variant === 'vivid' ? vividColorFor(seed) : paletteFor(seed).bg;
+  const radiusForVariant = variant === 'vivid' ? size / 2 : size / 3;
   return (
     <View
       style={{
         width: size,
         height: size,
-        borderRadius: size / 3,
+        borderRadius: radiusForVariant,
         backgroundColor: bg,
         alignItems: 'center',
         justifyContent: 'center',
@@ -310,11 +321,16 @@ export function StreakCard({
             key={i}
             style={[
               styles.streakDay,
-              d.active && styles.streakDayActive,
-              d.isToday && !d.active && styles.streakDayToday,
+              d.active && !d.isToday && styles.streakDayActive,
+              d.active && d.isToday && styles.streakDayTodayActive,
+              !d.active && d.isToday && styles.streakDayTodayPending,
             ]}
           >
-            <Text style={[styles.streakDayText, d.active && styles.streakDayTextActive]}>{d.label}</Text>
+            {d.active ? (
+              <Text style={styles.streakDayGlyph}>{d.isToday ? '⭐' : '✓'}</Text>
+            ) : (
+              <Text style={styles.streakDayText}>{d.label}</Text>
+            )}
           </View>
         ))}
       </View>
@@ -485,8 +501,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  streakDayActive: { backgroundColor: colors.warning },
-  streakDayToday: { borderWidth: 1.5, borderColor: colors.primary },
+  streakDayActive: { backgroundColor: '#22C55E' },
+  streakDayTodayActive: { backgroundColor: colors.warning },
+  streakDayTodayPending: { borderWidth: 1.5, borderColor: colors.primary },
   streakDayText: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
-  streakDayTextActive: { color: '#FFFFFF' },
+  streakDayGlyph: { fontSize: 12, color: '#FFFFFF' },
 });
