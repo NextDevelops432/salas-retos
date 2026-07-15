@@ -5,12 +5,15 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ToastProvider } from '../context/ToastContext';
+import { Sidebar } from '../components/Sidebar';
 import { colors } from '../constants/theme';
+import { useIsWideScreen } from '../lib/useIsWideScreen';
 
 function RootNavigation() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const isWide = useIsWideScreen();
 
   useEffect(() => {
     if (loading) return;
@@ -31,7 +34,10 @@ function RootNavigation() {
     );
   }
 
-  return (
+  const inAuthGroup = segments[0] === '(auth)';
+  const showSidebar = isWide && !!session && !inAuthGroup;
+
+  const stack = (
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
@@ -43,6 +49,15 @@ function RootNavigation() {
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
+  );
+
+  if (!showSidebar) return stack;
+
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.bg }}>
+      <Sidebar />
+      <View style={{ flex: 1 }}>{stack}</View>
+    </View>
   );
 }
 

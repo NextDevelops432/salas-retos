@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { usePathname, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, radius, spacing } from '../constants/theme';
 
@@ -7,34 +8,16 @@ const COLLAPSE_KEY = 'retame:sidebarCollapsed';
 const EXPANDED_WIDTH = 224;
 const COLLAPSED_WIDTH = 76;
 
-interface TabRoute {
-  key: string;
-  name: string;
-}
+const NAV_ITEMS: { path: '/' | '/historial' | '/ranking' | '/profile'; label: string; emoji: string }[] = [
+  { path: '/', label: 'Inicio', emoji: '🏠' },
+  { path: '/historial', label: 'Historial', emoji: '🗂️' },
+  { path: '/ranking', label: 'Ranking', emoji: '🏅' },
+  { path: '/profile', label: 'Perfil', emoji: '👤' },
+];
 
-interface TabDescriptor {
-  options: {
-    title?: string;
-    tabBarLabel?: string;
-    tabBarIcon?: (props: { focused: boolean; color: string; size: number }) => React.ReactNode;
-  };
-}
-
-export interface SidebarBarProps {
-  state: { routes: TabRoute[]; index: number };
-  descriptors: Record<string, TabDescriptor>;
-  navigation: {
-    navigate: (name: string) => void;
-    emit: (e: { type: string; target: string; canPreventDefault: true }) => { defaultPrevented: boolean };
-  };
-}
-
-function navLabel(options: TabDescriptor['options']): string {
-  if (typeof options.tabBarLabel === 'string') return options.tabBarLabel;
-  return options.title ?? '';
-}
-
-export function Sidebar({ state, descriptors, navigation }: SidebarBarProps) {
+export function Sidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -73,28 +56,19 @@ export function Sidebar({ state, descriptors, navigation }: SidebarBarProps) {
 
       <View style={{ height: spacing.sm }} />
 
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const focused = state.index === index;
-        const label = navLabel(options);
-
-        const onPress = () => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!focused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
+      {NAV_ITEMS.map((item) => {
+        const focused = item.path === '/' ? pathname === '/' : pathname.startsWith(item.path);
 
         return (
           <Pressable
-            key={route.key}
-            onPress={onPress}
+            key={item.path}
+            onPress={() => router.push(item.path as any)}
             style={[styles.item, focused && styles.itemActive, collapsed && styles.itemCollapsed]}
           >
-            {options.tabBarIcon?.({ focused, color: focused ? colors.primary : colors.textMuted, size: 20 })}
+            <Text style={{ fontSize: 20 }}>{item.emoji}</Text>
             {!collapsed ? (
               <Text style={[styles.itemLabel, focused && styles.itemLabelActive]} numberOfLines={1}>
-                {label}
+                {item.label}
               </Text>
             ) : null}
           </Pressable>
@@ -111,6 +85,7 @@ const styles = StyleSheet.create({
     borderRightColor: colors.border,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
+    height: '100%',
   },
   brandRow: { paddingHorizontal: spacing.sm, marginBottom: spacing.sm },
   brandRowCollapsed: { alignItems: 'center' },
@@ -144,13 +119,13 @@ const styles = StyleSheet.create({
   itemLabelActive: { color: colors.primary },
 });
 
-export function MobileTabBar({ state, descriptors, navigation }: SidebarBarProps) {
+export function MobileTabBar({ state, descriptors, navigation }: any) {
   return (
     <View style={mobileStyles.container}>
-      {state.routes.map((route, index) => {
+      {state.routes.map((route: any, index: number) => {
         const { options } = descriptors[route.key];
         const focused = state.index === index;
-        const label = navLabel(options);
+        const label = typeof options.tabBarLabel === 'string' ? options.tabBarLabel : options.title ?? '';
 
         const onPress = () => {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });

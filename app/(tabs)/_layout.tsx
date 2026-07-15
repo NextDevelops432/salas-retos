@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
-import { MobileTabBar, Sidebar } from '../../components/Sidebar';
+import { MobileTabBar } from '../../components/Sidebar';
 import { colors } from '../../constants/theme';
 import { useIsWideScreen } from '../../lib/useIsWideScreen';
 
@@ -13,7 +13,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      tabBar={(props) => (isWide ? <Sidebar {...(props as any)} /> : <MobileTabBar {...(props as any)} />)}
+      tabBar={(props) => (isWide ? null : <MobileTabBar {...(props as any)} />)}
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,

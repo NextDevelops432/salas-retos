@@ -6,7 +6,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { Badge, Card, DashboardHeader, DueCountdown, EmptyState, IconBadge } from '../../../components/UI';
-import { colors, radius, shadow, spacing } from '../../../constants/theme';
+import { colors, paletteFor, radius, shadow, spacing } from '../../../constants/theme';
 import { pickRewardEmoji, pickTaskEmoji } from '../../../lib/format';
 import { useIsWideScreen } from '../../../lib/useIsWideScreen';
 import type { Reward, Room, Task, TaskCompletion } from '../../../lib/database.types';
@@ -33,6 +33,7 @@ export default function RoomDetailScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [memberNames, setMemberNames] = useState<Map<string, string>>(new Map());
+  const [members, setMembers] = useState<{ id: string; username: string }[]>([]);
 
   const waitingOnFor = (excludeUserId: string | null) => {
     const names = Array.from(memberNames.entries())
@@ -64,6 +65,7 @@ export default function RoomDetailScreen() {
     if (memberIds.length) {
       const { data: memberProfiles } = await supabase.from('profiles').select('id, username').in('id', memberIds);
       setMemberNames(new Map((memberProfiles ?? []).map((p) => [p.id, p.username])));
+      setMembers(memberProfiles ?? []);
     }
 
     const { data: taskRows } = await supabase
@@ -216,7 +218,12 @@ export default function RoomDetailScreen() {
       style={styles.container}
       contentContainerStyle={[styles.content, isWide && { maxWidth: 1000 }]}
     >
-      <Stack.Screen options={{ title: room?.name ?? 'Sala' }} />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <Pressable style={styles.backRow} onPress={() => router.push('/')}>
+        <Text style={styles.backText}>← Volver a mis salas</Text>
+      </Pressable>
+      <View style={{ height: spacing.sm }} />
 
       <DashboardHeader greeting={room?.name ?? 'Sala'} subtitle={room?.description} username={profile?.username} />
 
@@ -233,6 +240,27 @@ export default function RoomDetailScreen() {
           <Text style={styles.inviteCode}>{room?.invite_code}  ↗</Text>
         </Pressable>
       </LinearGradient>
+
+      <View style={{ height: spacing.md }} />
+      <Text style={styles.sectionTitle}>Integrantes</Text>
+      <View style={{ height: spacing.sm }} />
+      <View style={styles.membersRow}>
+        {members.map((m) => {
+          const { bg, fg } = paletteFor(m.id);
+          return (
+            <View key={m.id} style={styles.memberPill}>
+              <View style={[styles.memberAvatar, { backgroundColor: bg }]}>
+                <Text style={{ color: fg, fontWeight: '800', fontSize: 12 }}>
+                  {m.username.slice(0, 2).toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.memberName} numberOfLines={1}>
+                {m.id === session?.user.id ? 'Tú' : m.username}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
 
       {pendingReviewCount > 0 && (
         <Link href={{ pathname: '/room/[id]/review', params: { id: id as string } }} asChild>
@@ -441,6 +469,28 @@ export default function RoomDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, maxWidth: 640, width: '100%', alignSelf: 'center' },
+  backRow: { alignSelf: 'flex-start' },
+  backText: { color: colors.primary, fontWeight: '700', fontSize: 13 },
+  sectionTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  membersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  memberPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    ...shadow,
+  },
+  memberAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberName: { color: colors.text, fontWeight: '700', fontSize: 12, maxWidth: 100 },
   hero: { borderRadius: radius.lg, padding: spacing.lg },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start' },
   roomDescCard: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
