@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, shadow, spacing } from '../constants/theme';
 
 const COLLAPSE_KEY = 'retame:sidebarCollapsed';
@@ -143,12 +144,13 @@ function TabItem({ route, index, state, descriptors, navigation }: any) {
 
 export function MobileTabBar({ state, descriptors, navigation }: any) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const routes = state.routes as any[];
   const firstHalf = routes.slice(0, 2);
   const secondHalf = routes.slice(2);
 
   return (
-    <View style={mobileStyles.wrap}>
+    <View style={[mobileStyles.wrap, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
       <View style={mobileStyles.container}>
         {firstHalf.map((route, i) => (
           <TabItem key={route.key} route={route} index={i} state={state} descriptors={descriptors} navigation={navigation} />
@@ -176,7 +178,7 @@ export function MobileTabBar({ state, descriptors, navigation }: any) {
 }
 
 const mobileStyles = StyleSheet.create({
-  wrap: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm, backgroundColor: colors.bg },
+  wrap: { paddingHorizontal: spacing.sm, backgroundColor: colors.bg },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
