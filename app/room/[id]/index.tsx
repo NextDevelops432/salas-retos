@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
-import { Badge, Card, DueCountdown, EmptyState, IconBadge } from '../../../components/UI';
+import { Badge, Card, DashboardHeader, DueCountdown, EmptyState, IconBadge } from '../../../components/UI';
 import { colors, radius, shadow, spacing } from '../../../constants/theme';
 import { pickRewardEmoji, pickTaskEmoji } from '../../../lib/format';
 import { useIsWideScreen } from '../../../lib/useIsWideScreen';
@@ -19,7 +19,7 @@ interface TaskWithMyStatus extends Task {
 
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const { notify, celebrate } = useToast();
   const router = useRouter();
   const isWide = useIsWideScreen();
@@ -218,15 +218,13 @@ export default function RoomDetailScreen() {
     >
       <Stack.Screen options={{ title: room?.name ?? 'Sala' }} />
 
+      <DashboardHeader greeting={room?.name ?? 'Sala'} subtitle={room?.description} username={profile?.username} />
+
       <LinearGradient colors={[colors.bgGradientStart, colors.bgGradientEnd]} style={styles.hero}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.roomName}>{room?.name}</Text>
-            {room?.description ? <Text style={styles.roomDesc}>{room.description}</Text> : null}
-          </View>
-          <View style={styles.pointsBox}>
-            <Text style={styles.pointsValue}>{pointsBalance}</Text>
-            <Text style={styles.pointsLabel}>puntos</Text>
+            <Text style={styles.pointsLabel}>Puntos disponibles</Text>
+            <Text style={styles.pointsValue}>⭐ {pointsBalance}</Text>
           </View>
         </View>
         <View style={{ height: spacing.md }} />
@@ -275,33 +273,32 @@ export default function RoomDetailScreen() {
                 <Card key={task.id} style={[{ marginBottom: spacing.sm }, isWide && styles.gridItem]}>
                   <Link href={{ pathname: '/room/[id]/task/[taskId]', params: { id: id as string, taskId: task.id } }} asChild>
                     <Pressable>
-                      <View style={styles.taskRow}>
-                        <IconBadge seed={task.id} emoji={task.icon || pickTaskEmoji(task.title)} />
-                        <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                          <Text style={styles.taskTitle}>{task.title}</Text>
-                          {assigneeName && (
-                            <Text style={styles.assignee}>
-                              {task.assigned_to === session?.user.id ? 'Asignado a ti' : `Asignado a ${assigneeName}`}
-                            </Text>
-                          )}
-                          <View style={styles.taskBadges}>
-                            <DueCountdown dueAt={task.due_at} onExpire={load} />
-                            {isPending && <Badge text="Pendiente de aprobación" tone="warning" />}
-                            {task.myCompletionStatus === 'pending' && <Badge text="Enviado, esperando revisión" tone="warning" />}
-                            {task.myCompletionStatus === 'approved' && <Badge text="Completado ✓" tone="accent" />}
-                            {task.myCompletionStatus === 'rejected' && <Badge text="Rechazado" tone="danger" />}
-                          </View>
-                          {isPending && (
-                            <Text style={styles.waitingOn}>Esperando que lo confirme: {assigneeName ?? 'la persona asignada'}</Text>
-                          )}
-                          {task.myCompletionStatus === 'pending' && (
-                            <Text style={styles.waitingOn}>
-                              Esperando que lo apruebe: {waitingOnFor(session?.user.id ?? null)}
-                            </Text>
-                          )}
-                        </View>
-                        <Badge text={`${task.points} pts`} tone="points" />
+                      <View style={styles.tileHeadRow}>
+                        <IconBadge seed={task.id} emoji={task.icon || pickTaskEmoji(task.title)} size={48} />
+                        <Badge text={`${task.points}`} tone="points" />
                       </View>
+                      <View style={{ height: spacing.sm }} />
+                      <Text style={styles.taskTitle}>{task.title}</Text>
+                      {assigneeName && (
+                        <Text style={styles.assignee}>
+                          {task.assigned_to === session?.user.id ? 'Asignado a ti' : `Asignado a ${assigneeName}`}
+                        </Text>
+                      )}
+                      <View style={styles.taskBadges}>
+                        <DueCountdown dueAt={task.due_at} onExpire={load} />
+                        {isPending && <Badge text="Pendiente de aprobación" tone="warning" />}
+                        {task.myCompletionStatus === 'pending' && <Badge text="Enviado, esperando revisión" tone="warning" />}
+                        {task.myCompletionStatus === 'approved' && <Badge text="Completado ✓" tone="accent" />}
+                        {task.myCompletionStatus === 'rejected' && <Badge text="Rechazado" tone="danger" />}
+                      </View>
+                      {isPending && (
+                        <Text style={styles.waitingOn}>Esperando que lo confirme: {assigneeName ?? 'la persona asignada'}</Text>
+                      )}
+                      {task.myCompletionStatus === 'pending' && (
+                        <Text style={styles.waitingOn}>
+                          Esperando que lo apruebe: {waitingOnFor(session?.user.id ?? null)}
+                        </Text>
+                      )}
                     </Pressable>
                   </Link>
                   <View style={{ height: spacing.sm }} />
@@ -355,22 +352,19 @@ export default function RoomDetailScreen() {
               const canReview = isPending && reward.last_modified_by !== session?.user.id;
               return (
                 <Card key={reward.id} style={[{ marginBottom: spacing.sm }, isWide && styles.gridItem]}>
-                  <View style={styles.taskRow}>
-                    <IconBadge seed={reward.id} emoji={reward.icon || pickRewardEmoji(reward.title)} />
-                    <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                      <Text style={styles.taskTitle}>{reward.title}</Text>
-                      {reward.description ? <Text style={styles.roomDescCard}>{reward.description}</Text> : null}
-                      {isPending && (
-                        <View style={{ marginTop: 6 }}>
-                          <Badge text="Pendiente de aprobación" tone="warning" />
-                          <Text style={styles.waitingOn}>
-                            Esperando que lo apruebe: {waitingOnFor(reward.last_modified_by)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Badge text={`${reward.cost_points} pts`} tone="points" />
+                  <View style={styles.tileHeadRow}>
+                    <IconBadge seed={reward.id} emoji={reward.icon || pickRewardEmoji(reward.title)} size={48} />
+                    <Badge text={`${reward.cost_points}`} tone="points" />
                   </View>
+                  <View style={{ height: spacing.sm }} />
+                  <Text style={styles.taskTitle}>{reward.title}</Text>
+                  {reward.description ? <Text style={styles.roomDescCard}>{reward.description}</Text> : null}
+                  {isPending && (
+                    <View style={{ marginTop: 6 }}>
+                      <Badge text="Pendiente de aprobación" tone="warning" />
+                      <Text style={styles.waitingOn}>Esperando que lo apruebe: {waitingOnFor(reward.last_modified_by)}</Text>
+                    </View>
+                  )}
                   <View style={{ height: spacing.sm }} />
                   <View style={styles.buttonsRow}>
                     <Pressable
@@ -449,12 +443,9 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, maxWidth: 640, width: '100%', alignSelf: 'center' },
   hero: { borderRadius: radius.lg, padding: spacing.lg },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  roomName: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
-  roomDesc: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 4 },
   roomDescCard: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
-  pointsBox: { alignItems: 'center', marginLeft: spacing.sm },
-  pointsValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '800' },
-  pointsLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
+  pointsValue: { color: '#FFFFFF', fontSize: 30, fontWeight: '800', marginTop: 4 },
+  pointsLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' },
   inviteRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -470,7 +461,7 @@ const styles = StyleSheet.create({
   segmentBtnActive: { backgroundColor: colors.primary, ...shadow },
   segmentText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
   segmentTextActive: { color: colors.textOnPrimary },
-  taskRow: { flexDirection: 'row', alignItems: 'center' },
+  tileHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   taskTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
   assignee: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   taskBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },

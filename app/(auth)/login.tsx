@@ -56,6 +56,10 @@ export default function LoginScreen() {
         <Link href="/(auth)/signup" style={styles.link}>
           ¿No tienes cuenta? Regístrate
         </Link>
+        <View style={{ height: spacing.sm }} />
+        <Link href="/(auth)/landing" style={styles.backLink}>
+          ← Volver al inicio
+        </Link>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -98,5 +102,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textAlign: 'center',
     fontWeight: '700',
+  },
+  backLink: {
+    color: colors.textMuted,
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 13,
   },
 });

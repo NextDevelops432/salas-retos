@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps } from 'react-native';
 import { colors, paletteFor, radius, shadow, spacing } from '../constants/theme';
 import { formatDueIn } from '../lib/format';
+import { NotificationsBell } from './NotificationsBell';
 
 export function IconBadge({ seed, emoji, size = 44 }: { seed: string; emoji: string; size?: number }) {
   const { bg } = paletteFor(seed);
@@ -88,8 +89,83 @@ export function Badge({ text, tone = 'default' }: { text: string; tone?: 'defaul
   const { bg, fg } = map[tone];
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={[styles.badgeText, { color: fg }]}>{text}</Text>
+      <Text style={[styles.badgeText, { color: fg }]}>{tone === 'points' ? `⭐ ${text}` : text}</Text>
     </View>
+  );
+}
+
+/** Header de dashboard: saludo + subtitulo a la izquierda, chip de usuario a la derecha. */
+export function DashboardHeader({
+  greeting,
+  subtitle,
+  username,
+}: {
+  greeting: string;
+  subtitle?: string;
+  username?: string | null;
+}) {
+  return (
+    <View style={styles.dashHeader}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.dashGreeting}>{greeting}</Text>
+        {subtitle ? <Text style={styles.dashSubtitle}>{subtitle}</Text> : null}
+      </View>
+      <View style={styles.dashHeaderRight}>
+        <NotificationsBell />
+        {username ? (
+          <View style={styles.avatarChip}>
+            <View style={styles.avatarCircle}>
+              <Text style={{ fontSize: 16 }}>👤</Text>
+            </View>
+            <Text style={styles.avatarName} numberOfLines={1}>
+              {username}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** Tarjeta "tile": icono arriba, titulo, meta y puntos abajo. */
+export function Tile({
+  seed,
+  emoji,
+  title,
+  meta,
+  points,
+  onPress,
+  footer,
+}: {
+  seed: string;
+  emoji: string;
+  title: string;
+  meta?: string;
+  points?: number;
+  onPress?: () => void;
+  footer?: React.ReactNode;
+}) {
+  const Wrapper = onPress ? Pressable : View;
+  return (
+    <Wrapper style={styles.tile} onPress={onPress}>
+      <IconBadge seed={seed} emoji={emoji} size={48} />
+      <View style={{ height: spacing.sm }} />
+      <Text style={styles.tileTitle} numberOfLines={2}>
+        {title}
+      </Text>
+      {meta ? (
+        <Text style={styles.tileMeta} numberOfLines={1}>
+          {meta}
+        </Text>
+      ) : null}
+      <View style={{ flex: 1, minHeight: spacing.sm }} />
+      {points !== undefined ? (
+        <View style={styles.tileFooter}>
+          <Badge text={String(points)} tone="points" />
+        </View>
+      ) : null}
+      {footer}
+    </Wrapper>
   );
 }
 
@@ -213,6 +289,39 @@ export function MemberPicker({
   );
 }
 
+/** Tarjeta de racha: numero de dias consecutivos + marcas L-D de la semana. */
+export function StreakCard({
+  current,
+  weekMarks,
+}: {
+  current: number;
+  weekMarks: { label: string; active: boolean; isToday: boolean }[];
+}) {
+  return (
+    <View style={styles.streakCard}>
+      <Text style={styles.streakLabel}>Racha actual 🔥</Text>
+      <Text style={styles.streakValue}>
+        {current} {current === 1 ? 'día' : 'días'}
+      </Text>
+      <View style={{ height: spacing.sm }} />
+      <View style={styles.streakDaysRow}>
+        {weekMarks.map((d, i) => (
+          <View
+            key={i}
+            style={[
+              styles.streakDay,
+              d.active && styles.streakDayActive,
+              d.isToday && !d.active && styles.streakDayToday,
+            ]}
+          >
+            <Text style={[styles.streakDayText, d.active && styles.streakDayTextActive]}>{d.label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View style={styles.empty}>
@@ -321,4 +430,63 @@ const styles = StyleSheet.create({
   memberOptionSelected: { backgroundColor: colors.primary },
   memberOptionText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
   memberOptionTextSelected: { color: colors.textOnPrimary },
+  dashHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  dashGreeting: { color: colors.text, fontSize: 22, fontWeight: '800' },
+  dashSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
+  dashHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  avatarChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    ...shadow,
+  },
+  avatarCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarName: { color: colors.text, fontWeight: '700', fontSize: 13, maxWidth: 120 },
+  tile: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    minHeight: 150,
+    ...shadow,
+  },
+  tileTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  tileMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  tileFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  streakCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    ...shadow,
+  },
+  streakLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  streakValue: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 4 },
+  streakDaysRow: { flexDirection: 'row', gap: 6 },
+  streakDay: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakDayActive: { backgroundColor: colors.warning },
+  streakDayToday: { borderWidth: 1.5, borderColor: colors.primary },
+  streakDayText: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
+  streakDayTextActive: { color: '#FFFFFF' },
 });

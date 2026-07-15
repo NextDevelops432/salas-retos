@@ -1,12 +1,13 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { Link, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Button, Card, EmptyState, IconBadge } from '../../components/UI';
-import { colors, radius, shadow, spacing } from '../../constants/theme';
+import { Button, DashboardHeader, EmptyState, StreakCard, Tile } from '../../components/UI';
+import { colors, radius, spacing } from '../../constants/theme';
 import { useIsWideScreen } from '../../lib/useIsWideScreen';
+import { computeLevel, computeStreak } from '../../lib/gamification';
 import type { Room } from '../../lib/database.types';
 
 interface RoomListItem extends Room {
@@ -19,11 +20,21 @@ export default function RoomsScreen() {
   const router = useRouter();
   const isWide = useIsWideScreen();
   const [rooms, setRooms] = useState<RoomListItem[]>([]);
+  const [lifetimePoints, setLifetimePoints] = useState(0);
+  const [streak, setStreak] = useState(computeStreak([]));
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
+
+    const { data: approvedDates } = await supabase
+      .from('task_completions')
+      .select('reviewed_at, completed_at')
+      .eq('user_id', session.user.id)
+      .eq('status', 'approved');
+    setStreak(computeStreak((approvedDates ?? []).map((r: any) => r.reviewed_at ?? r.completed_at)));
+
     const { data: memberships } = await supabase
       .from('room_members')
       .select('room:rooms(*)')
@@ -35,6 +46,7 @@ export default function RoomsScreen() {
 
     if (roomsData.length === 0) {
       setRooms([]);
+      setLifetimePoints(0);
       setLoading(false);
       setRefreshing(false);
       return;
@@ -45,7 +57,7 @@ export default function RoomsScreen() {
     const [{ data: points }, { data: members }] = await Promise.all([
       supabase
         .from('room_member_points')
-        .select('room_id, points_balance')
+        .select('room_id, points_balance, points_earned')
         .eq('user_id', session.user.id)
         .in('room_id', roomIds),
       supabase.from('room_members').select('room_id').in('room_id', roomIds),
@@ -56,6 +68,8 @@ export default function RoomsScreen() {
     for (const m of members ?? []) {
       countByRoom.set(m.room_id, (countByRoom.get(m.room_id) ?? 0) + 1);
     }
+
+    setLifetimePoints((points ?? []).reduce((sum: number, p: any) => sum + (p.points_earned ?? 0), 0));
 
     setRooms(
       roomsData
@@ -76,7 +90,9 @@ export default function RoomsScreen() {
     }, [load])
   );
 
-  const numColumns = isWide ? 3 : 1;
+  const numColumns = isWide ? 4 : 2;
+  const totalPoints = rooms.reduce((sum, r) => sum + r.points_balance, 0);
+  const level = computeLevel(lifetimePoints);
 
   return (
     <View style={styles.container}>
@@ -84,7 +100,7 @@ export default function RoomsScreen() {
         key={numColumns}
         data={rooms}
         numColumns={numColumns}
-        columnWrapperStyle={numColumns > 1 ? { gap: spacing.md } : undefined}
+        columnWrapperStyle={{ gap: spacing.md }}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, rooms.length === 0 && { flex: 1 }]}
         style={{ width: '100%', maxWidth: isWide ? 1100 : 640, alignSelf: 'center' }}
@@ -99,15 +115,50 @@ export default function RoomsScreen() {
           />
         }
         ListHeaderComponent={
-          <LinearGradient colors={[colors.bgGradientStart, colors.bgGradientEnd]} style={styles.hero}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroGreeting}>¡Hola, {profile?.username?.split('_')[0] ?? ''}! 👋</Text>
-              <Text style={styles.heroTitle}>Tus salas</Text>
+          <View>
+            <DashboardHeader
+              greeting={`¡Hola, ${profile?.username?.split('_')[0] ?? ''}! 👋`}
+              subtitle="Estas son tus salas"
+              username={profile?.username}
+            />
+
+            <View style={isWide ? styles.statsRowWide : undefined}>
+              <LinearGradient
+                colors={[colors.bgGradientStart, colors.bgGradientEnd]}
+                style={[styles.hero, isWide && { flex: 2 }]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.heroLabel}>Puntos totales · Nivel {level.level}</Text>
+                  <Text style={styles.heroValue}>⭐ {totalPoints}</Text>
+                  <Text style={styles.heroHint}>
+                    En {rooms.length} {rooms.length === 1 ? 'sala' : 'salas'} · Faltan{' '}
+                    {level.pointsForNextLevel - level.pointsIntoLevel} pts para el nivel {level.level + 1}
+                  </Text>
+                </View>
+                <Button title="+ Nueva sala" variant="secondary" onPress={() => router.push('/room/new')} />
+              </LinearGradient>
+
+              {isWide ? (
+                <>
+                  <View style={{ width: spacing.md }} />
+                  <View style={{ flex: 1 }}>
+                    <StreakCard current={streak.current} weekMarks={streak.weekMarks} />
+                  </View>
+                </>
+              ) : null}
             </View>
-            {isWide && (
-              <Button title="+ Nueva sala" variant="secondary" onPress={() => router.push('/room/new')} />
-            )}
-          </LinearGradient>
+
+            {!isWide ? (
+              <>
+                <View style={{ height: spacing.md }} />
+                <StreakCard current={streak.current} weekMarks={streak.weekMarks} />
+              </>
+            ) : null}
+
+            <View style={{ height: spacing.lg }} />
+            <Text style={styles.sectionTitle}>Tus salas</Text>
+            <View style={{ height: spacing.sm }} />
+          </View>
         }
         ListEmptyComponent={
           !loading ? (
@@ -118,70 +169,34 @@ export default function RoomsScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <Link href={{ pathname: '/room/[id]', params: { id: item.id } }} asChild>
-            <Pressable style={numColumns > 1 ? { flex: 1 } : undefined}>
-              <Card style={{ marginBottom: spacing.sm }}>
-                <View style={styles.roomRow}>
-                  <IconBadge seed={item.id} emoji="🏠" />
-                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                    <Text style={styles.roomName}>{item.name}</Text>
-                    <Text style={styles.roomMeta}>
-                      {item.member_count} {item.member_count === 1 ? 'miembro' : 'miembros'} · código{' '}
-                      {item.invite_code}
-                    </Text>
-                  </View>
-                  <View style={styles.pointsPill}>
-                    <Text style={styles.pointsText}>{item.points_balance} pts</Text>
-                  </View>
-                </View>
-              </Card>
-            </Pressable>
-          </Link>
+          <View style={{ flex: 1 }}>
+            <Tile
+              seed={item.id}
+              emoji="🏠"
+              title={item.name}
+              meta={`${item.member_count} ${item.member_count === 1 ? 'miembro' : 'miembros'} · ${item.invite_code}`}
+              points={item.points_balance}
+              onPress={() => router.push({ pathname: '/room/[id]', params: { id: item.id } })}
+            />
+          </View>
         )}
       />
-
-      {!isWide && (
-        <Pressable style={styles.fab} onPress={() => router.push('/room/new')}>
-          <Text style={styles.fabText}>+</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  list: { padding: spacing.md },
+  list: { padding: spacing.md, gap: spacing.md },
+  statsRowWide: { flexDirection: 'row', alignItems: 'stretch' },
   hero: {
     borderRadius: radius.lg,
     padding: spacing.lg,
-    marginBottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  heroGreeting: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' },
-  heroTitle: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', marginTop: 4 },
-  roomRow: { flexDirection: 'row', alignItems: 'center' },
-  roomName: { color: colors.text, fontSize: 17, fontWeight: '700' },
-  roomMeta: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
-  pointsPill: {
-    backgroundColor: colors.pointsBg,
-    borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  pointsText: { color: colors.points, fontWeight: '800', fontSize: 13 },
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow,
-  },
-  fabText: { color: colors.textOnPrimary, fontSize: 28, fontWeight: '700', marginTop: -2 },
+  heroLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' },
+  heroValue: { color: '#FFFFFF', fontSize: 30, fontWeight: '800', marginTop: 4 },
+  heroHint: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 },
+  sectionTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
 });

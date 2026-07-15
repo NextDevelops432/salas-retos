@@ -17,7 +17,7 @@ function RootNavigation() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!session && !inAuthGroup) {
-      router.replace('/(auth)/login');
+      router.replace('/(auth)/landing');
     } else if (session && inAuthGroup) {
       router.replace('/(tabs)');
     }

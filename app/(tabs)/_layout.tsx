@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
+import { MobileTabBar, Sidebar } from '../../components/Sidebar';
 import { colors } from '../../constants/theme';
 import { useIsWideScreen } from '../../lib/useIsWideScreen';
 
@@ -12,32 +13,35 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => (isWide ? <Sidebar {...(props as any)} /> : <MobileTabBar {...(props as any)} />)}
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        tabBarPosition: isWide ? 'left' : 'bottom',
-        tabBarVariant: isWide ? 'material' : 'uikit',
-        tabBarStyle: isWide
-          ? { backgroundColor: colors.surface, borderRightWidth: 1, borderRightColor: colors.border, width: 220 }
-          : {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
-              height: 64,
-              paddingBottom: 10,
-              paddingTop: 8,
-            },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontWeight: '700', fontSize: 11 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Mis Salas',
-          tabBarLabel: 'Salas',
+          tabBarLabel: 'Inicio',
           tabBarIcon: () => <TabIcon emoji="🏠" />,
+        }}
+      />
+      <Tabs.Screen
+        name="historial"
+        options={{
+          title: 'Historial',
+          tabBarLabel: 'Historial',
+          tabBarIcon: () => <TabIcon emoji="🗂️" />,
+        }}
+      />
+      <Tabs.Screen
+        name="ranking"
+        options={{
+          title: 'Ranking',
+          tabBarLabel: 'Ranking',
+          tabBarIcon: () => <TabIcon emoji="🏅" />,
         }}
       />
       <Tabs.Screen
